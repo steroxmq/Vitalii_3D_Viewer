@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="sk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Forensic Scanner</title>
+
+    <link rel="icon" href="./assets/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" href="./assets/favicon-32.png" sizes="32x32">
+    <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="bg-scene" aria-hidden="true">
+        <div class="bg-orb bg-orb-1"></div>
+        <div class="bg-orb bg-orb-2"></div>
+        <div class="bg-orb bg-orb-3"></div>
+        <div class="bg-grid"></div>
+        <div class="bg-vignette"></div>
+    </div>
+
+    <a class="back-btn" href="/">← Späť</a>
+
+    <main class="page">
+        <section class="hero">
+            <p class="label">3D model analysis lab</p>
+
+            <h1>3D Forensic Scanner</h1>
+
+            <p class="description">
+                Interaktívne laboratórium na kontrolu 3D modelov pomocou režimov zobrazenia,
+                geometrických štatistík a exportu náhľadu.
+            </p>
+
+            <div class="upload-box">
+                <div class="panel-header">
+                    <div>
+                        <span class="panel-kicker">Input</span>
+                        <h2>Scan 3D model</h2>
+                    </div>
+
+                    <span class="format-pill">.GLB</span>
+                </div>
+
+                <p class="panel-note">
+                    Vyber pripravený model alebo nahraj vlastný súbor vo formáte GLB.
+                </p>
+
+                <label class="drop-zone" id="dropZone" for="modelInput">
+                    <input type="file" id="modelInput" accept=".glb">
+
+                    <span class="drop-icon">⬆</span>
+                    <strong>Drop model for analysis</strong>
+                    <small>alebo klikni pre výber súboru</small>
+                    <em>.glb scan</em>
+                </label>
+
+                <div class="section-heading">
+                    <span>Preset models</span>
+                </div>
+
+                <div class="model-collection">
+                    <button class="model-card active" data-model="room" type="button">
+                        <div class="model-card-content">
+                            <span>Miestnosť</span>
+                            <strong>Room / Interior</strong>
+                        </div>
+
+                        <div class="model-card-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M3 10.5L12 3L21 10.5" />
+                                <path d="M5.5 9.5V20H18.5V9.5" />
+                                <path d="M9.5 20V13H14.5V20" />
+                            </svg>
+                        </div>
+                    </button>
+
+                    <button class="model-card" data-model="person" type="button">
+                        <div class="model-card-content">
+                            <span>Postava</span>
+                            <strong>Head / Character</strong>
+                        </div>
+
+                        <div class="model-card-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="7" r="3.2" />
+                                <path d="M6.5 20C6.8 16.8 8.7 14.8 12 14.8C15.3 14.8 17.2 16.8 17.5 20" />
+                                <path d="M9.2 11.8L8.3 14.7" />
+                                <path d="M14.8 11.8L15.7 14.7" />
+                            </svg>
+                        </div>
+                    </button>
+
+                    <button class="model-card" data-model="object" type="button">
+                        <div class="model-card-content">
+                            <span>Predmet</span>
+                            <strong>Object</strong>
+                        </div>
+
+                        <div class="model-card-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M12 3L19 7V17L12 21L5 17V7L12 3Z" />
+                                <path d="M12 3V21" />
+                                <path d="M5 7L12 11L19 7" />
+                            </svg>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="section-heading">
+                    <span>Model data</span>
+                </div>
+
+                <div class="info-panel">
+                    <div>
+                        <span>Názov súboru</span>
+                        <strong id="fileName">—</strong>
+                    </div>
+
+                    <div>
+                        <span>Formát</span>
+                        <strong id="fileFormat">—</strong>
+                    </div>
+
+                    <div>
+                        <span>Veľkosť</span>
+                        <strong id="fileSize">—</strong>
+                    </div>
+
+                    <div>
+                        <span>Stav</span>
+                        <strong id="fileStatus">Čaká sa na vstup</strong>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="viewer">
+            <div class="viewer-stage" id="viewerStage">
+                <div class="viewer-glow" aria-hidden="true"></div>
+                <div class="viewer-scanline" aria-hidden="true"></div>
+                <div class="scanner-haze" aria-hidden="true"></div>
+
+                <div class="chamber-floor" aria-hidden="true">
+                    <span></span>
+                </div>
+
+                <div class="data-orbit" aria-hidden="true">
+                    <i></i>
+                    <i></i>
+                    <i></i>
+                </div>
+
+                <div class="system-strip" aria-hidden="true">
+                    <span>CORE ONLINE</span>
+                    <span>GLB PIPELINE ACTIVE</span>
+                    <span>SCAN READY</span>
+                </div>
+
+                <div class="viewer-reticle" aria-hidden="true">
+                    <span class="reticle-ring"></span>
+                    <span class="reticle-line reticle-line-x"></span>
+                    <span class="reticle-line reticle-line-y"></span>
+                </div>
+
+                <div class="toast" id="toast" aria-live="polite"></div>
+
+                <div class="viewer-toolbar">
+                    <button id="fullscreenBtn" class="viewer-tool-btn" type="button">
+                        <span class="viewer-tool-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M8 4H4V8" />
+                                <path d="M16 4H20V8" />
+                                <path d="M4 16V20H8" />
+                                <path d="M20 16V20H16" />
+                                <path d="M9 5H5V9" />
+                                <path d="M15 5H19V9" />
+                                <path d="M5 15V19H9" />
+                                <path d="M19 15V19H15" />
+                            </svg>
+                        </span>
+
+                        <span class="button-label">Fullscreen</span>
+                        <span class="button-spacer" aria-hidden="true"></span>
+                    </button>
+
+                    <button id="screenshotBtn" class="viewer-tool-btn" type="button">
+                        <span class="viewer-tool-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path
+                                    d="M8 7L9.2 5.2H14.8L16 7H19C19.6 7 20 7.4 20 8V17C20 17.6 19.6 18 19 18H5C4.4 18 4 17.6 4 17V8C4 7.4 4.4 7 5 7H8Z" />
+                                <circle cx="12" cy="12.5" r="3.2" />
+                            </svg>
+                        </span>
+
+                        <span class="button-label">Screenshot PNG</span>
+                        <span class="button-spacer" aria-hidden="true"></span>
+                    </button>
+                </div>
+
+                <div class="viewer-hud">
+                    <div class="hud-controls">
+                        <span>Rotate: Left mouse</span>
+                        <span>Zoom: Wheel</span>
+                        <span>Pan: Right mouse</span>
+                    </div>
+
+                    <div class="hud-status">
+                        <span>Mode: <strong id="viewerMode">Normal</strong></span>
+                        <span>Status: <strong id="viewerStatus">Ready</strong></span>
+                        <span>File: <strong id="viewerFile">—</strong></span>
+                    </div>
+                </div>
+
+                <div class="viewer-placeholder" id="viewerPlaceholder">
+                    <div class="empty-state">
+                        <div class="empty-orb">
+                            <span>3D</span>
+                        </div>
+
+                        <p class="empty-kicker">Scanner ready</p>
+
+                        <h2>Vyber cieľ skenovania alebo nahraj vlastný .glb</h2>
+
+                        <p class="empty-description">
+                            Analyzuj miestnosť, model študenta alebo objekt pomocou povrchového,
+                            drôtového a X-Ray režimu.
+                        </p>
+
+                        <div class="empty-badges">
+                            <span>Room scan</span>
+                            <span>Student scan</span>
+                            <span>Object scan</span>
+                            <span>.glb analysis</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="viewer-result" id="viewerResult" aria-live="polite"></div>
+            </div>
+
+            <aside class="forensic-panel">
+                <div class="forensic-header">
+                    <span>Forensic tools</span>
+                    <strong>Analysis panel</strong>
+                </div>
+
+                <div class="forensic-console">
+                    <div class="console-header">
+                        <span>Live forensic log</span>
+                        <strong id="consoleState">IDLE</strong>
+                    </div>
+
+                    <div class="console-lines" id="consoleLines">
+                        <p>&gt; Awaiting scan command...</p>
+                    </div>
+                </div>
+
+                <div class="forensic-verdict" id="forensicVerdict">
+                    <span>Verdict</span>
+                    <strong>Not scanned</strong>
+                    <p>Run scan to generate forensic conclusion.</p>
+                </div>
+
+                <div class="scan-status-card">
+                    <span>Status</span>
+                    <strong id="scanStatus">Waiting for target</strong>
+                </div>
+
+                <div class="forensic-section-title">Scan report</div>
+
+                <div class="scan-report">
+                    <div>
+                        <span>Complexity</span>
+                        <strong id="scanComplexity">—</strong>
+                    </div>
+
+                    <div>
+                        <span>Dimensions</span>
+                        <strong id="scanDimensions">—</strong>
+                    </div>
+
+                    <div>
+                        <span>Meshes</span>
+                        <strong id="meshCount">—</strong>
+                    </div>
+
+                    <div>
+                        <span>Vertices</span>
+                        <strong id="vertexCount">—</strong>
+                    </div>
+
+                    <div>
+                        <span>Triangles</span>
+                        <strong id="triangleCount">—</strong>
+                    </div>
+                </div>
+
+                <div class="forensic-section-title">Scan action</div>
+
+                <div class="scan-actions">
+                    <button id="runScanBtn" class="icon-action-btn" type="button">
+                        <span class="action-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M12 3V6" />
+                                <path d="M12 18V21" />
+                                <path d="M3 12H6" />
+                                <path d="M18 12H21" />
+                                <circle cx="12" cy="12" r="4.2" />
+                                <circle cx="12" cy="12" r="1.3" />
+                            </svg>
+                        </span>
+
+                        <span class="button-label">Run scan</span>
+                        <span class="button-spacer" aria-hidden="true"></span>
+                    </button>
+                </div>
+
+                <div class="forensic-section-title">View modes</div>
+
+                <div class="scan-actions scan-actions-3">
+                    <button class="mode-btn active" data-mode="normal" type="button">
+                        <span class="mode-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M6 7.5L12 4L18 7.5V16.5L12 20L6 16.5V7.5Z" />
+                                <path d="M12 4V20" />
+                                <path d="M6 7.5L12 11L18 7.5" />
+                            </svg>
+                        </span>
+                        <span class="mode-label">Surface</span>
+                        <span class="mode-spacer" aria-hidden="true"></span>
+                    </button>
+
+                    <button class="mode-btn" data-mode="wireframe" type="button">
+                        <span class="mode-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M6 7.5L12 4L18 7.5V16.5L12 20L6 16.5V7.5Z" />
+                                <path d="M12 4V20" />
+                                <path d="M6 7.5L12 11L18 7.5" />
+                                <path d="M6 16.5L12 11L18 16.5" />
+                            </svg>
+                        </span>
+                        <span class="mode-label">Wireframe</span>
+                        <span class="mode-spacer" aria-hidden="true"></span>
+                    </button>
+
+                    <button class="mode-btn" data-mode="hybrid" type="button">
+                        <span class="mode-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path
+                                    d="M3.5 12C5.2 8.7 8.2 6.8 12 6.8C15.8 6.8 18.8 8.7 20.5 12C18.8 15.3 15.8 17.2 12 17.2C8.2 17.2 5.2 15.3 3.5 12Z" />
+                                <circle cx="12" cy="12" r="2.6" />
+                                <path d="M6 4L18 20" />
+                            </svg>
+                        </span>
+                        <span class="mode-label">X-Ray</span>
+                        <span class="mode-spacer" aria-hidden="true"></span>
+                    </button>
+                </div>
+
+                <div class="forensic-section-title">Scene controls</div>
+
+                <div class="scan-actions">
+                    <button id="resetViewBtn" class="icon-action-btn" type="button">
+                        <span class="action-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M4 7V13H10" />
+                                <path
+                                    d="M5.5 16.2C7 18.5 9.5 20 12.3 20C16.5 20 20 16.6 20 12.3C20 8.1 16.6 4.7 12.3 4.7C9.2 4.7 6.6 6.5 5.3 9.1" />
+                            </svg>
+                        </span>
+
+                        <span class="button-label">Reset view</span>
+                        <span class="button-spacer" aria-hidden="true"></span>
+                    </button>
+
+                    <button id="autoRotateBtn" class="icon-action-btn" type="button">
+                        <span class="action-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M17.5 6.5C16.1 5.1 14.2 4.3 12 4.3C7.7 4.3 4.3 7.7 4.3 12" />
+                                <path d="M14.7 6.5H17.5V3.7" />
+                                <path d="M6.5 17.5C7.9 18.9 9.8 19.7 12 19.7C16.3 19.7 19.7 16.3 19.7 12" />
+                                <path d="M9.3 17.5H6.5V20.3" />
+                            </svg>
+                        </span>
+
+                        <span class="button-label">Auto rotate: ON</span>
+                        <span class="button-spacer" aria-hidden="true"></span>
+                    </button>
+
+                    <button id="gridBtn" class="icon-action-btn" type="button">
+                        <span class="action-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M4 4H20V20H4V4Z" />
+                                <path d="M4 10H20" />
+                                <path d="M4 16H20" />
+                                <path d="M10 4V20" />
+                                <path d="M16 4V20" />
+                            </svg>
+                        </span>
+
+                        <span class="button-label">Grid: ON</span>
+                        <span class="button-spacer" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </aside>
+        </section>
+    </main>
+
+    <script type="importmap">
+{
+    "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+    }
+}
+    </script>
+
+    <script type="module" src="./script.js"></script>
+</body>
+
+</html>
