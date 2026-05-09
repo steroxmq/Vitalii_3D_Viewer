@@ -141,7 +141,7 @@ This format is suitable for Gaussian Splatting models exported from tools such a
 - Three.js
 - GaussianSplats3D
 - SuperSplat
-- Polycam / Luma AI style Gaussian Splatting workflow
+- Polycam / Luma AI / Kiri style Gaussian Splatting workflow
 - Local web server for running ES modules and 3D assets
 
 ---
