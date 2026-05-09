@@ -119,14 +119,10 @@ const presetModels = {
         path: "./models/splats/person.ply",
         title: "Head / Character",
         category: "Postava",
-
         cameraPosition: [0, -2.2, 1.35],
         lookAt: [0, 0, 0.45],
-
         position: [0, 0, 0],
-
         rotation: [0, 1, 0, 0],
-
         scale: [1.45, 1.45, 1.45],
         orbitRadius: 3.2
     },
@@ -167,7 +163,11 @@ const splatViewer = new GaussianSplats3D.Viewer({
     splatSortDistanceMapPrecision: 8,
 
     selfDrivenMode: true,
-    useBuiltInControls: true
+    useBuiltInControls: true,
+
+    webGLContextAttributes: {
+        preserveDrawingBuffer: true
+    }
 });
 
 /* =========================
@@ -600,6 +600,38 @@ function closeInfoModal() {
     infoModal.setAttribute("aria-hidden", "true");
 }
 
+function getViewerCanvas() {
+    const canvases = Array.from(viewerStage.querySelectorAll("canvas"));
+
+    if (!canvases.length) {
+        return null;
+    }
+
+    return canvases[canvases.length - 1];
+}
+
+function downloadCanvasAsPng(canvas, filename) {
+    canvas.toBlob((blob) => {
+        if (!blob) {
+            showToast("Screenshot failed", "error");
+            return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.download = filename;
+        link.href = url;
+        link.click();
+
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+        }, 500);
+
+        showToast("Screenshot PNG saved");
+    }, "image/png");
+}
+
 /* =========================
    LOAD SPLAT MODEL
 ========================= */
@@ -614,6 +646,7 @@ async function loadSplatModel(modelKey, customFile = null) {
     } else {
         activeUploadFile = null;
     }
+
     const preset = isUpload ? null : presetModels[modelKey];
 
     if (!isUpload && !preset) return;
@@ -640,7 +673,7 @@ async function loadSplatModel(modelKey, customFile = null) {
     setText(scanStatusLabel, "Loading target");
     setScanProgress(8, "Loading splat", "scanning");
 
-    showStatus(`Načítavam Gaussian Splat model...`);
+    showStatus("Načítavam Gaussian Splat model...");
 
     try {
         if (viewerStarted) {
@@ -978,20 +1011,34 @@ document.addEventListener("fullscreenchange", () => {
     );
 });
 
-screenshotBtn?.addEventListener("click", () => {
-    const canvas = viewerStage.querySelector("canvas");
+screenshotBtn?.addEventListener("click", async () => {
+    const canvas = getViewerCanvas();
 
     if (!canvas) {
-        showToast("Screenshot failed", "error");
+        showToast("Screenshot failed: canvas not found", "error");
         return;
     }
 
-    const link = document.createElement("a");
-    link.download = "3d-gaussian-splat-scan.png";
-    link.href = canvas.toDataURL("image/png");
-    link.click();
+    try {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        await new Promise((resolve) => requestAnimationFrame(resolve));
 
-    showToast("Screenshot PNG saved");
+        const screenshotCanvas = document.createElement("canvas");
+
+        screenshotCanvas.width = canvas.width;
+        screenshotCanvas.height = canvas.height;
+
+        const context = screenshotCanvas.getContext("2d");
+
+        context.fillStyle = "#050812";
+        context.fillRect(0, 0, screenshotCanvas.width, screenshotCanvas.height);
+        context.drawImage(canvas, 0, 0);
+
+        downloadCanvasAsPng(screenshotCanvas, "3d-gaussian-splat-scan.png");
+    } catch (error) {
+        console.error(error);
+        showToast("Screenshot failed", "error");
+    }
 });
 
 rotateModelLeftBtn?.addEventListener("click", () => {
