@@ -8,7 +8,7 @@
 
 The project was created as part of the MSAP multimedia assignment. The main goal is to present 3D content in an interactive and visually attractive way using a forensic-style scanner interface.
 
-The application allows the user to load Gaussian Splatting models, inspect them directly in the browser, switch between visual analysis modes, run a simulated forensic scan, display model statistics, generate a scan verdict and export a PNG screenshot.
+The application allows the user to load Gaussian Splatting models, inspect them directly in the browser, switch between visual analysis modes, run a simulated forensic scan, display model statistics, generate a scan verdict, open an information modal and export a PNG screenshot.
 
 ---
 
@@ -40,6 +40,7 @@ The application supports:
 - Gaussian Splat model statistics;
 - splat count display;
 - quality estimation;
+- project information modal;
 - visual scan modes:
   - Natural;
   - X-Ray;
@@ -84,6 +85,7 @@ After running the scan, the application displays:
 | Right mouse | Pan camera |
 | Fullscreen | Opens the viewer in fullscreen mode |
 | Screenshot PNG | Exports the current viewer image |
+| INFO | Opens a modal window with project information, controls and supported formats |
 | Run scan | Starts forensic analysis simulation |
 | Natural | Shows the default splat visualization |
 | X-Ray | Enables forensic X-Ray visual effect |
@@ -92,6 +94,22 @@ After running the scan, the application displays:
 | Auto rotate | Enables or disables automatic scene rotation |
 | Grid | Shows or hides the background grid |
 | Left / Reset / Right | Rotates the loaded model |
+
+---
+
+## Information modal
+
+The project includes an **INFO** button in the left control panel.
+
+The modal window explains:
+
+- what the application does;
+- how to control the viewer;
+- which visual modes are available;
+- which model formats are supported;
+- which rendering technology is used.
+
+This makes the application easier to understand directly inside the interface without reading external documentation first.
 
 ---
 
@@ -191,7 +209,8 @@ http://127.0.0.1:5500/
    - complexity level;
    - splat count;
    - quality estimation.
-8. Use **Screenshot PNG** to export the current viewer image.
+8. Use **INFO** to open the project information window.
+9. Use **Screenshot PNG** to export the current viewer image.
 
 ---
 
@@ -204,6 +223,7 @@ Vitalii_3D_Viewer/
 ├── style.css               # Visual design and responsive layout
 ├── script.js               # Gaussian Splatting viewer logic and scanner functionality
 ├── README.md               # Project documentation
+├── LICENSE                 # Project license
 ├── thumbnail.png           # Required project thumbnail, 1000 × 1000 px
 ├── .gitignore              # Git ignore rules
 │
@@ -260,7 +280,7 @@ Because of this, some classic mesh operations such as real wireframe rendering o
 
 The application is fully client-side and does not require a backend server.
 
-All model loading, visualization, scan simulation and screenshot export are handled directly in the browser.
+All model loading, visualization, scan simulation, information modal and screenshot export are handled directly in the browser.
 
 For correct functionality, the project should be served through a local server because ES modules and local 3D assets may be blocked when opening the HTML file directly.
 
@@ -273,6 +293,8 @@ Large archive files such as `.zip`, `.rar` or video exports should not be commit
 This project is licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0).
 
 See the `LICENSE` file for details.
+
+---
 
 ## Author
 
