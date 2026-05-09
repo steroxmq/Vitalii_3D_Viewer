@@ -1,30 +1,24 @@
 # 3D Forensic Scanner
 
-<img width="1254" height="1254" alt="thumbnail" src="https://github.com/user-attachments/assets/3071ac2a-d96e-4dd9-bb13-d99a05c31876" />
+<img width="1000" height="1000" alt="thumbnail" src="./thumbnail.png" />
 
 ## Project description
 
-**3D Forensic Scanner** is an interactive web application for visual analysis of 3D models.
+**3D Forensic Scanner** is an interactive web application for visual analysis of 3D Gaussian Splatting models.
 
 The project was created as part of the MSAP multimedia assignment. The main goal is to present 3D content in an interactive and visually attractive way using a forensic-style scanner interface.
 
-The application allows the user to load 3D models, inspect them in the browser, switch between visualization modes, run a simulated forensic scan, display geometry statistics, generate a scan verdict and mark the model with evidence-style annotations.
+The application allows the user to load Gaussian Splatting models, inspect them directly in the browser, switch between visual analysis modes, run a simulated forensic scan, display model statistics, generate a scan verdict and export a PNG screenshot.
 
 ---
 
 ## Main idea
 
-The project is focused on **3D content** and interactive model analysis.
+The project is focused on **3D content** and interactive Gaussian Splatting visualization.
 
-Instead of showing a static 3D object, the application presents the model as a scanned forensic target. After running the scan, the viewer displays:
+Instead of displaying a simple static 3D object, the application presents the model as a scanned forensic target. The interface is designed as a digital analysis laboratory where reconstructed 3D scenes are inspected visually and statistically.
 
-- a live forensic log;
-- a scan verdict;
-- model geometry statistics;
-- a bounding box around the model;
-- evidence markers placed directly on the 3D object.
-
-This creates the effect of a digital forensic analysis tool for reconstructed 3D evidence.
+The application uses Gaussian Splatting models exported mainly in `.ply` format. This makes the result closer to real 3D reconstruction workflows than a standard polygonal mesh viewer.
 
 ---
 
@@ -32,25 +26,92 @@ This creates the effect of a digital forensic analysis tool for reconstructed 3D
 
 The application supports:
 
-- loading predefined 3D models in `.glb` format;
-- uploading a custom `.glb` model from the user's computer;
-- interactive 3D viewing with mouse controls;
-- automatic model rotation;
-- grid visualization;
+- loading predefined Gaussian Splatting models;
+- uploading custom `.ply`, `.splat` or `.ksplat` models;
+- interactive camera controls;
 - fullscreen mode;
 - PNG screenshot export;
-- Surface, Wireframe and X-Ray visualization modes;
+- automatic rotation toggle;
+- scene grid toggle;
+- model rotation controls;
 - forensic scan simulation;
 - live forensic log;
-- automatic scan verdict generation;
-- geometric statistics:
-  - mesh count;
-  - vertex count;
-  - triangle count;
-  - model dimensions;
-  - complexity rating;
-- forensic bounding box around the scanned model;
-- evidence markers placed on the model after scanning.
+- automatic scan verdict;
+- Gaussian Splat model statistics;
+- splat count display;
+- quality estimation;
+- visual scan modes:
+  - Natural;
+  - X-Ray;
+  - Density.
+
+---
+
+## Visual modes
+
+| Mode | Description |
+|---|---|
+| Natural | Default realistic Gaussian Splatting view |
+| X-Ray | Forensic-style cyan X-Ray visualization using visual filters and scan overlay |
+| Density | Stronger filtering mode focused on dense and stable splat areas |
+
+The X-Ray mode is a visual forensic effect. Since Gaussian Splatting models are not polygonal meshes, the application does not display a real internal mesh structure. Instead, it applies a stylized X-Ray-like visual mode suitable for splat-based reconstruction.
+
+---
+
+## Forensic scan output
+
+After running the scan, the application displays:
+
+| Output | Description |
+|---|---|
+| Complexity | Estimated model complexity based on splat count |
+| Type | Model type, for example Gaussian field |
+| Scene | Number of loaded splat scenes |
+| Splats | Number of detected Gaussian splats |
+| Quality | Estimated reconstruction quality |
+| Verdict | Simple forensic conclusion generated from the scan |
+| Live log | Step-by-step simulated forensic analysis log |
+
+---
+
+## Viewer controls
+
+| Control | Function |
+|---|---|
+| Left mouse | Rotate camera |
+| Mouse wheel | Zoom |
+| Right mouse | Pan camera |
+| Fullscreen | Opens the viewer in fullscreen mode |
+| Screenshot PNG | Exports the current viewer image |
+| Run scan | Starts forensic analysis simulation |
+| Natural | Shows the default splat visualization |
+| X-Ray | Enables forensic X-Ray visual effect |
+| Density | Enables density-focused splat filtering |
+| Reset view | Resets the camera position |
+| Auto rotate | Enables or disables automatic scene rotation |
+| Grid | Shows or hides the background grid |
+| Left / Reset / Right | Rotates the loaded model |
+
+---
+
+## Supported model formats
+
+The application supports the following model formats:
+
+```text
+.ply
+.splat
+.ksplat
+```
+
+The main format used in the project is:
+
+```text
+Splat PLY
+```
+
+This format is suitable for Gaussian Splatting models exported from tools such as Polycam, Luma AI or SuperSplat.
 
 ---
 
@@ -58,12 +119,12 @@ The application supports:
 
 - HTML5
 - CSS3
-- JavaScript
+- JavaScript ES6+
 - Three.js
-- GLTFLoader
-- OrbitControls
-- Blender
-- KIRI Engine / 3D scanning tools for model preparation
+- GaussianSplats3D
+- SuperSplat
+- Polycam / Luma AI style Gaussian Splatting workflow
+- Local web server for running ES modules and 3D assets
 
 ---
 
@@ -71,7 +132,7 @@ The application supports:
 
 The project must be started through a local server.
 
-Opening `index.html` directly by double-clicking is not recommended, because Three.js modules and local 3D assets may not load correctly in the browser.
+Opening `index.html` directly by double-clicking is not recommended, because JavaScript modules and local 3D assets may not load correctly in the browser.
 
 ---
 
@@ -89,6 +150,7 @@ Example local address:
 http://127.0.0.1:5500/
 ```
 
+---
 
 ### Option 2: Run with Python local server
 
@@ -108,71 +170,28 @@ http://127.0.0.1:5500/
 
 ## How to use the application
 
-1. Open the application in the browser.
+1. Open the application in the browser through a local server.
 2. Select one of the predefined models:
-   - Room / Interior
-   - Head / Character
-   - Object
-3. Or upload your own `.glb` file.
+   - Room / Interior;
+   - Head / Character;
+   - Object.
+3. Or upload your own `.ply`, `.splat` or `.ksplat` model.
 4. Use mouse controls to inspect the model:
-   - Left mouse button: rotate
-   - Mouse wheel: zoom
-   - Right mouse button: pan
-5. Select a visualization mode:
-   - Surface
-   - Wireframe
-   - X-Ray
+   - left mouse button to rotate the camera;
+   - mouse wheel to zoom;
+   - right mouse button to pan.
+5. Select a visual mode:
+   - Natural;
+   - X-Ray;
+   - Density.
 6. Click **Run scan**.
 7. After the scan, the application displays:
    - live forensic log;
    - scan verdict;
-   - geometric statistics;
-   - bounding box;
-   - evidence markers.
-
----
-
-## Viewer controls
-
-| Control | Function |
-|---|---|
-| Surface | Shows the normal textured model |
-| Wireframe | Shows the model as wireframe geometry |
-| X-Ray | Shows transparent model with wireframe overlay |
-| Reset view | Resets the camera position |
-| Auto rotate | Enables or disables automatic model rotation |
-| Grid | Enables or disables the scene grid |
-| Fullscreen | Opens the viewer in fullscreen mode |
-| Screenshot PNG | Exports the current viewer image as PNG |
-| Run scan | Starts forensic analysis simulation |
-
----
-
-## Forensic scan output
-
-After running the scan, the application calculates and displays:
-
-| Output | Description |
-|---|---|
-| Complexity | Estimated complexity level based on triangle count |
-| Dimensions | Model size in the 3D scene |
-| Meshes | Number of mesh objects in the model |
-| Vertices | Number of vertices |
-| Triangles | Number of triangles |
-| Verdict | Simple forensic conclusion based on model complexity |
-| Markers | Evidence-style points placed on the model |
-| Bounding box | Visual boundary of the scanned model |
----
-
-## Supported model format
-
-The application supports:
-
-```text
-.glb
-```
-
-The `.glb` format is used because it can store geometry, materials and textures in a single file. This makes it suitable for browser-based 3D applications.
+   - complexity level;
+   - splat count;
+   - quality estimation.
+8. Use **Screenshot PNG** to export the current viewer image.
 
 ---
 
@@ -181,70 +200,71 @@ The `.glb` format is used because it can store geometry, materials and textures 
 ```text
 Vitalii_3D_Viewer/
 │
-├── index.html                  # Main HTML structure
-├── style.css                   # Visual design and responsive layout
-├── script.js                   # Three.js logic and scanner functionality
-├── README.md                   # Project documentation
+├── index.html              # Main HTML structure
+├── style.css               # Visual design and responsive layout
+├── script.js               # Gaussian Splatting viewer logic and scanner functionality
+├── README.md               # Project documentation
+├── thumbnail.png           # Required project thumbnail, 1000 × 1000 px
+├── .gitignore              # Git ignore rules
+│
+├── assets/
+│   ├── favicon.ico         # Browser favicon
+│   ├── favicon-32.png      # PNG favicon
+│   └── apple-touch-icon.png
 │
 ├── models/
-│   │
-│   ├── modelsforweb/           # Optimized GLB models used directly by the web viewer
-│   │   ├── room.glb
-│   │   ├── person.glb
-│   │   └── object.glb
-│   │
-│   ├── object/                 # Source data and exported model for the object scan
-│   │   ├── 01_ROOT_DATASET/    # Original photos used for reconstruction
-│   │   ├── 02_TRAINED_MODEL/   # Reconstructed PLY model and texture
-│   │   ├── 03_SCREENSHOT/      # Preview screenshot
-│   │   ├── 04_LICENSE/         # License information
-│   │   └── object.glb          # Exported GLB model
-│   │
-│   ├── person/                 # Source data and exported model for the person scan
-│   │   ├── 01_ROOT_DATASET/    # Original photos used for reconstruction
-│   │   ├── 02_TRAINED_MODEL/   # Reconstructed PLY model and texture
-│   │   ├── 03_SCREENSHOT/      # Preview screenshot
-│   │   └── 04_LICENSE/         # License information
-│   │
-│   ├── room/                   # Source data and exported model for the room scan
-│   │   ├── 01_ROOT_DATASET/    # Original photos used for reconstruction
-│   │   ├── 02_TRAINED_MODEL/   # Reconstructed PLY model and texture
-│   │   ├── 03_SCREENSHOT/      # Preview screenshot
-│   │   └── 04_LICENSE/         # License information
-│   │
-│   └── custommodels/           # Additional or backup custom models
+│   └── splats/
+│       ├── room.ply        # Room / interior Gaussian Splatting model
+│       ├── person.ply      # Person / character Gaussian Splatting model
+│       └── object.ply      # Object Gaussian Splatting model
 │
 └── vendor/
-    └── three/
-        ├── three.module.js
-        └── addons/
-            ├── loaders/
-            │   └── GLTFLoader.js
-            └── controls/
-                └── OrbitControls.js
-
+    └── optional local libraries or fallback assets
 ```
-## 3D models
-
-The project uses several predefined models:
-
-| Model | Description |
-|---|---|
-| Room / Interior | Example room or interior reconstruction |
-| Head / Character | Character or person-related scan |
-| Object | Object reconstructed from photos or 3D scanning workflow |
-
-The application also allows the user to upload a custom `.glb` model.
 
 ---
 
-## Notes
+## 3D models
+
+The project uses three predefined Gaussian Splatting models:
+
+| Model | Description |
+|---|---|
+| Room / Interior | Splat reconstruction of an indoor scene |
+| Head / Character | Splat reconstruction of a person or character |
+| Object | Splat reconstruction of a physical object |
+
+The models were prepared using a Gaussian Splatting workflow and cleaned or adjusted for browser presentation.
+
+---
+
+## Notes about Gaussian Splatting
+
+Gaussian Splatting models are different from classic mesh models.
+
+A traditional mesh model usually contains:
+
+- vertices;
+- edges;
+- triangles;
+- materials;
+- textures.
+
+A Gaussian Splatting model is instead based on many small semi-transparent points called splats. These splats together create the appearance of a reconstructed 3D scene.
+
+Because of this, some classic mesh operations such as real wireframe rendering or triangle-based X-Ray rendering are not directly applicable. The application therefore uses splat-specific statistics and visual effects.
+
+---
+
+## Important notes
 
 The application is fully client-side and does not require a backend server.
 
-All model loading, visualization and scanning effects are handled directly in the browser using Three.js.
+All model loading, visualization, scan simulation and screenshot export are handled directly in the browser.
 
 For correct functionality, the project should be served through a local server because ES modules and local 3D assets may be blocked when opening the HTML file directly.
+
+Large archive files such as `.zip`, `.rar` or video exports should not be committed to the repository, because GitHub has file size limits.
 
 ---
 
@@ -253,4 +273,4 @@ For correct functionality, the project should be served through a local server b
 Vitalii Maksym
 
 MSAP project  
-3D content – interactive forensic scanner
+3D content – interactive Gaussian Splatting forensic scanner
