@@ -4007,3 +4007,210 @@ h1 {
         font-size: 10px !important;
     }
 }
+
+/* =========================================================
+   LEFT INFO BUTTON + MODAL
+========================================================= */
+
+.info-open-btn {
+    width: 100%;
+    margin-top: 18px;
+    min-height: 46px;
+    border: 1px solid rgba(98, 234, 255, 0.38);
+    border-radius: 18px;
+    background:
+        linear-gradient(135deg, rgba(8, 32, 42, 0.72), rgba(25, 18, 56, 0.72));
+    color: #ffffff;
+    font-weight: 900;
+    letter-spacing: 1.8px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow:
+        inset 0 0 22px rgba(98, 234, 255, 0.08),
+        0 0 22px rgba(0, 234, 255, 0.08);
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.info-open-btn:hover {
+    transform: translateY(-2px);
+    border-color: rgba(98, 234, 255, 0.9);
+    box-shadow:
+        inset 0 0 26px rgba(98, 234, 255, 0.12),
+        0 0 28px rgba(0, 234, 255, 0.18);
+}
+
+.info-open-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    color: #06111a;
+    background: linear-gradient(135deg, #62eaff, #8b4dff);
+    font-weight: 1000;
+    font-size: 14px;
+    box-shadow: 0 0 18px rgba(98, 234, 255, 0.35);
+}
+
+.info-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.info-modal.is-open {
+    display: flex;
+}
+
+.info-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at center, rgba(98, 234, 255, 0.08), transparent 42%),
+        rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(10px);
+}
+
+.info-modal-card {
+    position: relative;
+    width: min(520px, 92vw);
+    max-height: 88vh;
+    overflow: auto;
+    border: 1px solid rgba(98, 234, 255, 0.32);
+    border-radius: 24px;
+    padding: 28px;
+    background:
+        linear-gradient(145deg, rgba(13, 22, 32, 0.96), rgba(22, 18, 42, 0.96));
+    color: #ffffff;
+    box-shadow:
+        0 30px 90px rgba(0, 0, 0, 0.55),
+        inset 0 0 40px rgba(98, 234, 255, 0.06);
+    animation: infoModalIn 0.22s ease-out;
+}
+
+@keyframes infoModalIn {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.info-close-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid rgba(98, 234, 255, 0.35);
+    background: rgba(5, 12, 24, 0.75);
+    color: #ffffff;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.info-modal-kicker {
+    margin: 0 0 8px;
+    color: #62eaff;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.info-modal-card h2 {
+    margin: 0 0 12px;
+    font-size: 30px;
+    line-height: 1.05;
+}
+
+.info-modal-text {
+    margin: 0 0 20px;
+    color: rgba(230, 248, 255, 0.72);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.info-modal-section {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(98, 234, 255, 0.18);
+}
+
+.info-modal-section strong {
+    display: block;
+    margin-bottom: 10px;
+    color: #ffffff;
+    font-size: 14px;
+}
+
+.info-modal-section ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.info-modal-section li {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 12px;
+    color: rgba(230, 248, 255, 0.72);
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.info-modal-section li span {
+    color: #62eaff;
+    font-weight: 900;
+}
+
+.info-modal-meta {
+    margin-top: 20px;
+    display: grid;
+    gap: 6px;
+    color: rgba(230, 248, 255, 0.55);
+    font-size: 12px;
+}
+
+.info-modal-main-btn {
+    width: 100%;
+    margin-top: 22px;
+    min-height: 42px;
+    border: 0;
+    border-radius: 13px;
+    background: #ffffff;
+    color: #111827;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+@media (max-width: 700px) {
+    .info-modal-card {
+        padding: 24px 18px;
+    }
+
+    .info-modal-section li {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+}

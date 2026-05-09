@@ -136,6 +136,11 @@
                     </div>
                 </div>
             </div>
+
+            <button id="infoBtn" class="info-open-btn" type="button">
+                <span class="info-open-icon">i</span>
+                <span>INFO</span>
+            </button>
         </section>
 
         <section class="viewer">
@@ -444,6 +449,57 @@
             </aside>
         </section>
     </main>
+
+    <div id="infoModal" class="info-modal" aria-hidden="true">
+        <div class="info-modal-backdrop" id="infoModalBackdrop"></div>
+
+        <div class="info-modal-card" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
+            <button id="infoCloseBtn" class="info-close-btn" type="button" aria-label="Close info window">
+                ×
+            </button>
+
+            <p class="info-modal-kicker">Gaussian Splatting Viewer</p>
+
+            <h2 id="infoModalTitle">3D Forensic Scanner</h2>
+
+            <p class="info-modal-text">
+                Interactive forensic-style viewer for Gaussian Splatting 3D models.
+                The application allows loading, inspecting, rotating and analysing splat-based 3D reconstructions.
+            </p>
+
+            <div class="info-modal-section">
+                <strong>Controls</strong>
+
+                <ul>
+                    <li><span>Left mouse</span>Rotate camera</li>
+                    <li><span>Mouse wheel</span>Zoom</li>
+                    <li><span>Right mouse</span>Pan camera</li>
+                    <li><span>Run scan</span>Generate forensic report</li>
+                    <li><span>Left / Reset / Right</span>Rotate loaded model</li>
+                </ul>
+            </div>
+
+            <div class="info-modal-section">
+                <strong>Visual modes</strong>
+
+                <ul>
+                    <li><span>Natural</span>Default realistic splat view</li>
+                    <li><span>X-Ray</span>Forensic cyan scan effect</li>
+                    <li><span>Density</span>Cleaner density-focused splat filtering</li>
+                </ul>
+            </div>
+
+            <div class="info-modal-meta">
+                <span>Renderer: GaussianSplats3D</span>
+                <span>Format: PLY / SPLAT / KSPLAT</span>
+                <span>MSAP project · 2026</span>
+            </div>
+
+            <button id="infoCloseBottomBtn" class="info-modal-main-btn" type="button">
+                Close
+            </button>
+        </div>
+    </div>
 
     <script type="importmap">
 {

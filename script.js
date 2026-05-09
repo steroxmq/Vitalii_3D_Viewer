@@ -58,6 +58,12 @@ const scanProgressLabel = document.getElementById("scanProgressLabel");
 const scanProgressBar = document.getElementById("scanProgressBar");
 const scanProgressCard = document.querySelector(".scan-progress-card");
 
+const infoBtn = document.getElementById("infoBtn");
+const infoModal = document.getElementById("infoModal");
+const infoModalBackdrop = document.getElementById("infoModalBackdrop");
+const infoCloseBtn = document.getElementById("infoCloseBtn");
+const infoCloseBottomBtn = document.getElementById("infoCloseBottomBtn");
+
 /* =========================
    STATE
 ========================= */
@@ -576,6 +582,24 @@ function applyVisualStyleMode(mode) {
     viewerStage?.classList.add(`mode-${mode}`);
 }
 
+function openInfoModal() {
+    if (!infoModal) {
+        return;
+    }
+
+    infoModal.classList.add("is-open");
+    infoModal.setAttribute("aria-hidden", "false");
+}
+
+function closeInfoModal() {
+    if (!infoModal) {
+        return;
+    }
+
+    infoModal.classList.remove("is-open");
+    infoModal.setAttribute("aria-hidden", "true");
+}
+
 /* =========================
    LOAD SPLAT MODEL
 ========================= */
@@ -983,6 +1007,17 @@ rotateModelRightBtn?.addEventListener("click", () => {
 resetModelRotationBtn?.addEventListener("click", () => {
     resetActiveModelRotation();
     showToast("Model rotation reset");
+});
+
+infoBtn?.addEventListener("click", openInfoModal);
+infoModalBackdrop?.addEventListener("click", closeInfoModal);
+infoCloseBtn?.addEventListener("click", closeInfoModal);
+infoCloseBottomBtn?.addEventListener("click", closeInfoModal);
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+        closeInfoModal();
+    }
 });
 
 /* =========================
