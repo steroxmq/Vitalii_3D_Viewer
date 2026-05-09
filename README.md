@@ -296,6 +296,12 @@ See the `LICENSE` file for details.
 
 ---
 
+---
+
+## Live Demo
+
+🌐 [Open 3D Forensic Scanner](https://steroxmq.github.io/Vitalii_3D_Viewer/)
+
 ## Author
 
 Vitalii Maksym
