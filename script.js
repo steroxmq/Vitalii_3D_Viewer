@@ -1,6 +1,5 @@
 import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import * as GaussianSplats3D from "@mkkellogg/gaussian-splats-3d";
 
 /* =========================
    DOM
@@ -11,7 +10,7 @@ const dropZone = document.getElementById("dropZone");
 const modelCards = document.querySelectorAll(".model-card");
 
 const viewerShell = document.querySelector(".viewer");
-const viewer = document.getElementById("viewerStage");
+const viewerStage = document.getElementById("viewerStage");
 const placeholder =
     document.getElementById("viewerPlaceholder") ||
     document.querySelector(".viewer-placeholder");
@@ -27,15 +26,11 @@ const viewerFileLabel = document.getElementById("viewerFile");
 
 const meshCountLabel = document.getElementById("meshCount");
 const vertexCountLabel = document.getElementById("vertexCount");
-const triangleCountLabel = document.getElementById("triangleCount");
+const qualityScoreLabel = document.getElementById("qualityScore");
 
 const scanStatusLabel = document.getElementById("scanStatus");
 const scanComplexityLabel = document.getElementById("scanComplexity");
 const scanDimensionsLabel = document.getElementById("scanDimensions");
-
-const scanProgressLabel = document.getElementById("scanProgressLabel");
-const scanProgressBar = document.getElementById("scanProgressBar");
-const scanProgressCard = document.querySelector(".scan-progress-card");
 
 const consoleState = document.getElementById("consoleState");
 const consoleLines = document.getElementById("consoleLines");
@@ -47,6 +42,10 @@ const resetViewBtn = document.getElementById("resetViewBtn");
 const autoRotateBtn = document.getElementById("autoRotateBtn");
 const gridBtn = document.getElementById("gridBtn");
 
+const rotateModelLeftBtn = document.getElementById("rotateModelLeftBtn");
+const rotateModelRightBtn = document.getElementById("rotateModelRightBtn");
+const resetModelRotationBtn = document.getElementById("resetModelRotationBtn");
+
 const fullscreenBtn = document.getElementById("fullscreenBtn");
 const screenshotBtn = document.getElementById("screenshotBtn");
 
@@ -54,7 +53,10 @@ const modeButtons = document.querySelectorAll(".mode-btn");
 
 const toast = document.getElementById("toast");
 const viewerResult = document.getElementById("viewerResult");
-const forensicPanel = document.querySelector(".forensic-panel");
+
+const scanProgressLabel = document.getElementById("scanProgressLabel");
+const scanProgressBar = document.getElementById("scanProgressBar");
+const scanProgressCard = document.querySelector(".scan-progress-card");
 
 /* =========================
    STATE
@@ -62,148 +64,108 @@ const forensicPanel = document.querySelector(".forensic-panel");
 
 let toastTimer = null;
 let viewerResultTimer = null;
-let visualMode = "normal";
-let isAutoRotating = true;
+
 let activeModelKey = "room";
-let currentModel = null;
-let currentStats = null;
+let activeModelPath = "./models/splats/room.ply";
+let activeModelTitle = "Room / Interior";
+
+let currentSplatMeta = null;
+let viewerStarted = false;
+let isLoading = false;
 let isScanning = false;
+let isAutoRotating = false;
+let visualMode = "natural";
 
-let boundsHelper = null;
-let evidenceMarkerGroup = null;
-let modelBaseGlow = null;
+const rotationOffsets = {
+    room: { x: 0, y: 0, z: 0 },
+    person: { x: 0, y: 0, z: 0 },
+    object: { x: 0, y: 0, z: 0 },
+    upload: { x: 0, y: 0, z: 0 }
+};
 
-const scanClock = new THREE.Clock();
+let activeUploadFile = null;
 
-/* =========================
-   SAFETY CHECK
-========================= */
+const MODEL_ROTATION_STEP = THREE.MathUtils.degToRad(15);
 
-if (!viewer) {
-    throw new Error("viewerStage element was not found. Check id='viewerStage' in HTML.");
-}
-
-/* =========================
-   THREE.JS SETUP
-========================= */
-
-const scene = new THREE.Scene();
-
-const camera = new THREE.PerspectiveCamera(
-    45,
-    Math.max(viewer.clientWidth, 1) / Math.max(viewer.clientHeight, 1),
-    0.1,
-    1000
-);
-
-camera.position.set(3.5, 2.4, 4.5);
-
-const renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: true,
-    preserveDrawingBuffer: true
-});
-
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(Math.max(viewer.clientWidth, 1), Math.max(viewer.clientHeight, 1));
-renderer.setClearColor(0x000000, 0);
-
-if ("outputColorSpace" in renderer) {
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-}
-
-renderer.domElement.classList.add("webgl-canvas");
-viewer.appendChild(renderer.domElement);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.06;
-controls.enableZoom = true;
-controls.enablePan = true;
-controls.autoRotate = false;
+let cameraRotationFrame = null;
+let cameraOrbitAngle = 0;
 
 /* =========================
-   LIGHTS / GRID
-========================= */
-
-const ambientLight = new THREE.HemisphereLight(0xffffff, 0x202040, 2.0);
-scene.add(ambientLight);
-
-const mainLight = new THREE.DirectionalLight(0xffffff, 3.2);
-mainLight.position.set(4, 6, 5);
-scene.add(mainLight);
-
-const fillLight = new THREE.DirectionalLight(0xffffff, 1.35);
-fillLight.position.set(-4, 2.5, 4);
-scene.add(fillLight);
-
-const cyanLight = new THREE.PointLight(0x00eaff, 4.2, 14);
-cyanLight.position.set(-3, 2.5, 3);
-scene.add(cyanLight);
-
-const purpleLight = new THREE.PointLight(0x8b4dff, 3.2, 14);
-purpleLight.position.set(3, 1.5, -3);
-scene.add(purpleLight);
-
-const grid = new THREE.GridHelper(8, 32, 0x00eaff, 0x25304a);
-grid.position.y = -1.2;
-scene.add(grid);
-
-const loader = new GLTFLoader();
-
-/* =========================
-   PRESET MODELS
+   PRESET SPLAT MODELS
 ========================= */
 
 const presetModels = {
     room: {
-        name: "room.glb",
-        path: "./models/modelsforweb/room.glb",
+        name: "room.ply",
+        path: "./models/splats/room.ply",
+        title: "Room / Interior",
         category: "Miestnosť",
-        sizeLabel: "—",
-        fitScale: 3.2,
-        cameraDistance: 1.8,
-        yOffset: 0,
-        manualPosition: null,
-        manualTarget: null
+        cameraPosition: [0, -5.2, 2.2],
+        lookAt: [0, 0, 0.25],
+        position: [0, 0, -0.55],
+        rotation: [0, 0, 0, 1],
+        scale: [0.55, 0.55, 0.55],
+        orbitRadius: 5.2
     },
+
     person: {
-        name: "person.glb",
-        path: "./models/modelsforweb/person.glb",
+        name: "person.ply",
+        path: "./models/splats/person.ply",
+        title: "Head / Character",
         category: "Postava",
-        sizeLabel: "—",
-        fitScale: 1.8,
-        cameraDistance: 1.45,
-        yOffset: 0,
-        manualPosition: null,
-        manualTarget: null
+
+        cameraPosition: [0, -2.2, 1.35],
+        lookAt: [0, 0, 0.45],
+
+        position: [0, 0, 0],
+
+        rotation: [0, 1, 0, 0],
+
+        scale: [1.45, 1.45, 1.45],
+        orbitRadius: 3.2
     },
+
     object: {
-        name: "object.glb",
-        path: "./models/modelsforweb/object.glb",
+        name: "object.ply",
+        path: "./models/splats/object.ply",
+        title: "Object",
         category: "Predmet",
-        sizeLabel: "—",
-        fitScale: 3.8,
-        cameraDistance: 1.45,
-        yOffset: 0.75,
-        manualPosition: null,
-        manualTarget: null
-    },
-    upload: {
-        name: "custom.glb",
-        path: "",
-        category: "Custom upload",
-        sizeLabel: "—",
-        fitScale: 3.2,
-        cameraDistance: 1.8,
-        yOffset: 0,
-        manualPosition: null,
-        manualTarget: null
+        cameraPosition: [0, -3.2, 1.45],
+        lookAt: [0, 0, 0.2],
+        position: [0, 0, -0.45],
+        rotation: [0, 0, 0, 1],
+        scale: [1.15, 1.15, 1.15],
+        orbitRadius: 3.2
     }
 };
 
+const presetOrder = ["room", "person", "object"];
+
 /* =========================
-   BASIC HELPERS
+   GAUSSIAN SPLAT VIEWER
+========================= */
+
+if (!viewerStage) {
+    throw new Error("viewerStage element was not found.");
+}
+
+const splatViewer = new GaussianSplats3D.Viewer({
+    rootElement: viewerStage,
+
+    cameraUp: [0, -1, -0.6],
+    initialCameraPosition: presetModels.room.cameraPosition,
+    initialCameraLookAt: presetModels.room.lookAt,
+
+    sharedMemoryForWorkers: false,
+    gpuAcceleratedSort: false,
+    splatSortDistanceMapPrecision: 8,
+
+    selfDrivenMode: true,
+    useBuiltInControls: true
+});
+
+/* =========================
+   HELPERS
 ========================= */
 
 function setText(element, value) {
@@ -213,18 +175,92 @@ function setText(element, value) {
 }
 
 function setIconButtonLabel(button, value) {
-    if (!button) {
-        return;
-    }
+    if (!button) return;
 
     const label = button.querySelector(".button-label");
 
     if (label) {
         label.textContent = value;
-        return;
+    } else {
+        button.textContent = value;
+    }
+}
+
+function showToast(message, type = "success") {
+    if (!toast) return;
+
+    clearTimeout(toastTimer);
+
+    toast.textContent = message;
+    toast.className = `toast show ${type}`;
+
+    toastTimer = setTimeout(() => {
+        toast.className = "toast";
+    }, 2200);
+}
+
+function showCenterResult(title, text = "", type = "success", autoHide = true) {
+    if (!viewerResult) return;
+
+    clearTimeout(viewerResultTimer);
+
+    let icon = "✓";
+
+    if (type === "error") icon = "✕";
+    if (type === "warning") icon = "!";
+
+    viewerResult.className = `viewer-result show ${type}`;
+    viewerResult.innerHTML = `
+        <div class="result-icon">${icon}</div>
+        <div class="result-title">${title}</div>
+        ${text ? `<p class="result-text">${text}</p>` : ""}
+    `;
+
+    if (autoHide) {
+        viewerResultTimer = setTimeout(() => {
+            hideCenterResult();
+        }, type === "success" ? 1150 : 1800);
+    }
+}
+
+function hideCenterResult() {
+    if (!viewerResult) return;
+
+    clearTimeout(viewerResultTimer);
+    viewerResult.className = "viewer-result";
+    viewerResult.innerHTML = "";
+}
+
+function showStatus(text) {
+    if (!placeholder) return;
+
+    placeholder.style.display = "grid";
+    placeholder.innerHTML = `
+        <div class="loading-state">
+            <div class="loading-ring"></div>
+            <p>${text}</p>
+        </div>
+    `;
+}
+
+function hidePlaceholder() {
+    if (!placeholder) return;
+    placeholder.style.display = "none";
+}
+
+function formatFileSize(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0) return "—";
+
+    const units = ["B", "KB", "MB", "GB"];
+    let size = bytes;
+    let index = 0;
+
+    while (size >= 1024 && index < units.length - 1) {
+        size /= 1024;
+        index++;
     }
 
-    button.textContent = value;
+    return `${size.toFixed(size >= 10 || index === 0 ? 1 : 2)} ${units[index]}`;
 }
 
 function setScanProgress(percent, label, state = "") {
@@ -245,135 +281,33 @@ function setScanProgress(percent, label, state = "") {
     }
 }
 
-function showToast(message, type = "success") {
-    if (!toast) {
-        return;
-    }
-
-    clearTimeout(toastTimer);
-
-    toast.textContent = message;
-    toast.className = `toast show ${type}`;
-
-    toastTimer = setTimeout(() => {
-        toast.className = "toast";
-    }, 2600);
+function getAlphaThreshold() {
+    if (visualMode === "xray") return 4;
+    if (visualMode === "density") return 38;
+    return 10;
 }
 
-function showCenterResult(title, text = "", type = "success", autoHide = true) {
-    if (!viewerResult) {
-        return;
-    }
-
-    clearTimeout(viewerResultTimer);
-
-    let icon = "✓";
-
-    if (type === "error") {
-        icon = "✕";
-    }
-
-    if (type === "warning") {
-        icon = "!";
-    }
-
-    viewerResult.className = `viewer-result show ${type}`;
-    viewerResult.innerHTML = `
-        <div class="result-icon">${icon}</div>
-        <div class="result-title">${title}</div>
-        ${text ? `<p class="result-text">${text}</p>` : ""}
-    `;
-
-    if (autoHide) {
-        const hideDelay = type === "success" ? 1150 : 1700;
-
-        viewerResultTimer = setTimeout(() => {
-            hideCenterResult();
-        }, hideDelay);
-    }
+function syncModelCards(modelKey = activeModelKey) {
+    modelCards.forEach((card) => {
+        card.classList.toggle("active", card.dataset.model === modelKey);
+    });
 }
 
-function hideCenterResult() {
-    if (!viewerResult) {
-        return;
-    }
+function resetStats() {
+    currentSplatMeta = null;
 
-    clearTimeout(viewerResultTimer);
-    viewerResult.className = "viewer-result";
-    viewerResult.innerHTML = "";
-}
+    setText(meshCountLabel, "—");
+    setText(vertexCountLabel, "—");
+    setText(qualityScoreLabel, "—");
+    setText(scanComplexityLabel, "—");
+    setText(scanDimensionsLabel, "—");
 
-function formatFileSize(bytes) {
-    if (!Number.isFinite(bytes) || bytes <= 0) {
-        return "—";
-    }
-
-    const units = ["B", "KB", "MB", "GB"];
-    let size = bytes;
-    let unitIndex = 0;
-
-    while (size >= 1024 && unitIndex < units.length - 1) {
-        size /= 1024;
-        unitIndex++;
-    }
-
-    const decimals = size >= 10 || unitIndex === 0 ? 1 : 2;
-
-    return `${size.toFixed(decimals)} ${units[unitIndex]}`;
-}
-
-async function updatePresetFileSize(path) {
-    if (!path) {
-        setText(fileSizeLabel, "—");
-        return;
-    }
-
-    try {
-        const response = await fetch(path);
-
-        if (!response.ok) {
-            throw new Error(`File size request failed: ${response.status}`);
-        }
-
-        const blob = await response.blob();
-        setText(fileSizeLabel, formatFileSize(blob.size));
-    } catch (error) {
-        console.warn("Could not calculate preset file size:", error);
-        setText(fileSizeLabel, "Unknown");
+    if (scanComplexityLabel) {
+        scanComplexityLabel.className = "";
     }
 }
-
-function showStatus(text) {
-    if (!placeholder) {
-        return;
-    }
-
-    placeholder.style.display = "grid";
-    placeholder.innerHTML = `
-        <div class="loading-state">
-            <div class="loading-ring"></div>
-            <p>${text}</p>
-        </div>
-    `;
-}
-
-function hidePlaceholder() {
-    if (!placeholder) {
-        return;
-    }
-
-    placeholder.style.display = "none";
-}
-
-/* =========================
-   FORENSIC UI
-========================= */
 
 function resetForensicConsole() {
-    setScanProgress(0, "Awaiting target");
-    forensicPanel?.classList.remove("scan-finished");
-    viewerShell?.classList.remove("scan-core-active");
-    viewer?.classList.remove("scan-core-active");
     if (consoleState) {
         consoleState.textContent = "IDLE";
     }
@@ -390,12 +324,12 @@ function resetForensicConsole() {
             <p>Run scan to generate forensic conclusion.</p>
         `;
     }
+
+    setScanProgress(0, "Awaiting target");
 }
 
 function addConsoleLine(text, type = "") {
-    if (!consoleLines) {
-        return;
-    }
+    if (!consoleLines) return;
 
     const line = document.createElement("p");
     line.textContent = `> ${text}`;
@@ -406,32 +340,148 @@ function addConsoleLine(text, type = "") {
 
     consoleLines.appendChild(line);
 
-    while (consoleLines.children.length > 7) {
+    while (consoleLines.children.length > 4) {
         consoleLines.removeChild(consoleLines.firstElementChild);
     }
 }
 
-function setForensicVerdict(stats) {
-    if (!forensicVerdict || !stats) {
-        return;
+function parsePlyHeader(buffer) {
+    const text = new TextDecoder("utf-8", { fatal: false }).decode(
+        buffer.slice(0, Math.min(buffer.byteLength, 65536))
+    );
+
+    const vertexMatch = text.match(/element\s+vertex\s+(\d+)/i);
+    const splatMatch = text.match(/element\s+splat\s+(\d+)/i);
+
+    const count = splatMatch
+        ? Number(splatMatch[1])
+        : vertexMatch
+            ? Number(vertexMatch[1])
+            : null;
+
+    const looksLikeGaussianSplat =
+        text.includes("scale_0") ||
+        text.includes("rot_0") ||
+        text.includes("opacity") ||
+        text.includes("f_dc_0");
+
+    return {
+        splatCount: count,
+        looksLikeGaussianSplat
+    };
+}
+
+async function getPresetMeta(path) {
+    const response = await fetch(path);
+
+    if (!response.ok) {
+        throw new Error(`Could not fetch model: ${response.status}`);
     }
+
+    const buffer = await response.arrayBuffer();
+    const parsed = parsePlyHeader(buffer);
+
+    return {
+        sizeBytes: buffer.byteLength,
+        format: path.split(".").pop().toUpperCase(),
+        splatCount: parsed.splatCount,
+        looksLikeGaussianSplat: parsed.looksLikeGaussianSplat
+    };
+}
+
+async function getUploadMeta(file) {
+    const buffer = await file.slice(0, 65536).arrayBuffer();
+    const parsed = parsePlyHeader(buffer);
+
+    return {
+        sizeBytes: file.size,
+        format: file.name.split(".").pop().toUpperCase(),
+        splatCount: parsed.splatCount,
+        looksLikeGaussianSplat: parsed.looksLikeGaussianSplat
+    };
+}
+
+function getComplexity(meta) {
+    const count = meta?.splatCount || 0;
+
+    if (count >= 1000000) {
+        return ["Extreme", "complexity-extreme"];
+    }
+
+    if (count >= 500000) {
+        return ["High", "complexity-high"];
+    }
+
+    if (count >= 100000) {
+        return ["Medium", "complexity-medium"];
+    }
+
+    return ["Low", "complexity-low"];
+}
+
+function getCaptureQuality(meta) {
+    if (!meta || !meta.splatCount) {
+        return "Unknown";
+    }
+
+    if (meta.looksLikeGaussianSplat === false) {
+        return "Check format";
+    }
+
+    if (meta.splatCount < 50000) {
+        return "Low detail";
+    }
+
+    if (meta.splatCount < 250000) {
+        return "Good";
+    }
+
+    if (meta.splatCount < 700000) {
+        return "High detail";
+    }
+
+    return "Very dense";
+}
+
+function updateSplatStats(meta) {
+    if (!meta) return;
+
+    const [rating, ratingClass] = getComplexity(meta);
+
+    setText(meshCountLabel, "1 scene");
+    setText(vertexCountLabel, meta.splatCount ? meta.splatCount.toLocaleString("sk-SK") : "Unknown");
+    setText(qualityScoreLabel, getCaptureQuality(meta));
+    setText(scanDimensionsLabel, "Gaussian field");
+    setText(scanComplexityLabel, rating);
+
+    if (scanComplexityLabel) {
+        scanComplexityLabel.className = ratingClass;
+    }
+}
+
+function setForensicVerdict(meta) {
+    if (!forensicVerdict) return;
 
     let verdictClass = "clean";
-    let verdictTitle = "Clean reconstruction";
-    let verdictText = "Geometry is stable. No critical scan anomalies detected.";
+    let verdictTitle = "Clean splat capture";
+    let verdictText = "Gaussian Splat model loaded correctly. No critical loading issues detected.";
 
-    if (stats.triangleCount >= 250000 || stats.meshCount >= 40) {
+    if (meta && meta.looksLikeGaussianSplat === false && meta.format === "PLY") {
         verdictClass = "warn";
-        verdictTitle = "Suspicious complexity";
-        verdictText =
-            "Model contains dense geometry or many separated fragments. Manual review is recommended.";
+        verdictTitle = "PLY format warning";
+        verdictText = "The file is PLY, but its header does not clearly look like a Gaussian Splat PLY.";
     }
 
-    if (stats.triangleCount >= 800000 || stats.surfaceDensity >= 45000) {
+    if (meta?.splatCount >= 500000) {
+        verdictClass = "warn";
+        verdictTitle = "Dense splat target";
+        verdictText = "The model contains a high number of splats. Performance may depend on the device.";
+    }
+
+    if (meta?.splatCount >= 1000000) {
         verdictClass = "danger";
-        verdictTitle = "Heavy forensic target";
-        verdictText =
-            "The scan is highly dense. Rendering, export and reconstruction accuracy should be checked.";
+        verdictTitle = "Heavy splat reconstruction";
+        verdictText = "Very dense Gaussian Splat model. Browser performance and loading time should be checked.";
     }
 
     forensicVerdict.className = `forensic-verdict is-ready ${verdictClass}`;
@@ -442,1036 +492,219 @@ function setForensicVerdict(stats) {
     `;
 }
 
-/* =========================
-   STATS
-========================= */
+function resetCameraForPreset(modelKey = activeModelKey) {
+    const preset = presetModels[modelKey] || presetModels.room;
 
-function computeModelStats(model) {
-    let meshCount = 0;
-    let vertexCount = 0;
-    let triangleCount = 0;
+    if (!splatViewer.camera) return;
 
-    model.traverse((child) => {
-        if (!child.isMesh || !child.geometry) {
-            return;
-        }
-
-        meshCount++;
-
-        const geometry = child.geometry;
-        const position = geometry.attributes.position;
-
-        if (position) {
-            vertexCount += position.count;
-        }
-
-        if (geometry.index) {
-            triangleCount += geometry.index.count / 3;
-        } else if (position) {
-            triangleCount += position.count / 3;
-        }
-    });
-
-    const roundedVertices = Math.round(vertexCount);
-    const roundedTriangles = Math.round(triangleCount);
-
-    const box = new THREE.Box3().setFromObject(model);
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-
-    box.getSize(size);
-    box.getCenter(center);
-
-    const volume = Math.max(size.x * size.y * size.z, 0);
-    const surfaceDensity = volume > 0 ? Math.round(roundedTriangles / volume) : 0;
-
-    let rating = "Low";
-    let ratingClass = "complexity-low";
-
-    if (roundedTriangles >= 50000 && roundedTriangles < 250000) {
-        rating = "Medium";
-        ratingClass = "complexity-medium";
-    }
-
-    if (roundedTriangles >= 250000 && roundedTriangles < 800000) {
-        rating = "High";
-        ratingClass = "complexity-high";
-    }
-
-    if (roundedTriangles >= 800000) {
-        rating = "Extreme";
-        ratingClass = "complexity-extreme";
-    }
-
-    return {
-        meshCount,
-        vertexCount: roundedVertices,
-        triangleCount: roundedTriangles,
-        size,
-        center,
-        box,
-        volume,
-        surfaceDensity,
-        maxSize: Math.max(size.x, size.y, size.z),
-        rating,
-        ratingClass
-    };
-}
-
-function updateModelStats(model) {
-    if (!model) {
-        return null;
-    }
-
-    const stats = computeModelStats(model);
-    currentStats = stats;
-
-    setText(meshCountLabel, stats.meshCount.toLocaleString("sk-SK"));
-    setText(vertexCountLabel, stats.vertexCount.toLocaleString("sk-SK"));
-    setText(triangleCountLabel, stats.triangleCount.toLocaleString("sk-SK"));
-
-    setText(
-        scanDimensionsLabel,
-        `${stats.size.x.toFixed(2)} × ${stats.size.y.toFixed(2)} × ${stats.size.z.toFixed(2)}`
+    splatViewer.camera.position.set(
+        preset.cameraPosition[0],
+        preset.cameraPosition[1],
+        preset.cameraPosition[2]
     );
 
-    setText(scanComplexityLabel, stats.rating);
-
-    if (scanComplexityLabel) {
-        scanComplexityLabel.className = stats.ratingClass;
-    }
-
-    setText(scanStatusLabel, "Scan complete");
-
-    return stats;
-}
-
-function resetStats() {
-    currentStats = null;
-    clearForensicOverlays();
-
-    setText(meshCountLabel, "—");
-    setText(vertexCountLabel, "—");
-    setText(triangleCountLabel, "—");
-    setText(scanComplexityLabel, "—");
-    setText(scanDimensionsLabel, "—");
-
-    if (scanComplexityLabel) {
-        scanComplexityLabel.className = "";
-    }
-}
-
-/* =========================
-   LOAD PRESET MODEL
-========================= */
-
-function loadPresetModel(modelKey) {
-    const preset = presetModels[modelKey];
-
-    if (!preset) {
-        return;
-    }
-
-    activeModelKey = modelKey;
-
-    setText(fileNameLabel, preset.name);
-    setText(fileFormatLabel, "GLB");
-    setText(fileSizeLabel, "Calculating...");
-    updatePresetFileSize(preset.path);
-    setText(fileStatusLabel, "Načítavanie...");
-
-    setText(viewerStatusLabel, "Loading");
-    setText(viewerFileLabel, preset.name);
-    setText(scanStatusLabel, "Loading target");
-    setScanProgress(8, "Loading target", "scanning");
-
-    resetStats();
-    resetForensicConsole();
-    hideCenterResult();
-    showStatus(`Načítavam model: ${preset.category}...`);
-
-    loader.load(
-        preset.path,
-        (gltf) => {
-            clearCurrentModel();
-
-            currentModel = gltf.scene;
-            scene.add(currentModel);
-
-            normalizeModel(currentModel);
-            createModelBaseGlow(currentModel);
-            enhanceModelMaterials(currentModel);
-            applyVisualMode(visualMode);
-
-            resetStats();
-            resetForensicConsole();
-            hidePlaceholder();
-
-            setText(fileStatusLabel, "Model načítaný");
-            setText(viewerStatusLabel, "Model loaded");
-            setText(scanStatusLabel, "Target loaded");
-            setScanProgress(18, "Target ready", "ready");
-
-            resizeRenderer();
-            fitCameraToModel(currentModel);
-
-            showCenterResult(
-                "Model loaded",
-                `${preset.category} bol úspešne načítaný.`,
-                "success"
-            );
-        },
-        undefined,
-        (error) => {
-            console.error(error);
-
-            showStatus("Model sa nepodarilo načítať.");
-            setText(fileStatusLabel, "Chyba načítania");
-            setText(viewerStatusLabel, "Error");
-            setText(scanStatusLabel, "Loading error");
-            setScanProgress(0, "Loading failed", "error");
-
-            showCenterResult(
-                "Loading failed",
-                "Model sa nepodarilo načítať.",
-                "error",
-                false
-            );
-        }
+    splatViewer.camera.lookAt(
+        preset.lookAt[0],
+        preset.lookAt[1],
+        preset.lookAt[2]
     );
 }
 
-/* =========================
-   UPLOAD MODEL
-========================= */
+function buildSceneRotation(baseRotation = [0, 0, 0, 1], modelKey = activeModelKey) {
+    const offset = rotationOffsets[modelKey] || rotationOffsets.upload;
 
-function handleModelFile(file) {
-    if (!file) {
-        return;
-    }
-
-    const fileName = file.name.toLowerCase();
-
-    if (!fileName.endsWith(".glb")) {
-        showCenterResult(
-            "Unsupported file",
-            "Podporované sú iba súbory .glb.",
-            "warning",
-            false
-        );
-        return;
-    }
-
-    activeModelKey = "upload";
-
-    modelCards.forEach((card) => card.classList.remove("active"));
-
-    const fileSizeMb = (file.size / 1024 / 1024).toFixed(2);
-    const extension = file.name.split(".").pop().toUpperCase();
-
-    setText(fileNameLabel, file.name);
-    setText(fileFormatLabel, extension);
-    setText(fileSizeLabel, `${fileSizeMb} MB`);
-    setText(fileStatusLabel, "Načítavanie...");
-
-    setText(viewerStatusLabel, "Loading");
-    setText(viewerFileLabel, file.name);
-    setText(scanStatusLabel, "Loading target");
-
-    resetStats();
-    resetForensicConsole();
-    hideCenterResult();
-    showStatus("Načítavam 3D model...");
-
-    const fileUrl = URL.createObjectURL(file);
-
-    loader.load(
-        fileUrl,
-        (gltf) => {
-            URL.revokeObjectURL(fileUrl);
-
-            clearCurrentModel();
-
-            currentModel = gltf.scene;
-            scene.add(currentModel);
-
-            normalizeModel(currentModel);
-            createModelBaseGlow(currentModel);
-            enhanceModelMaterials(currentModel);
-            applyVisualMode(visualMode);
-
-            resetStats();
-            resetForensicConsole();
-            hidePlaceholder();
-
-            setText(fileStatusLabel, "Model načítaný");
-            setText(viewerStatusLabel, "Model loaded");
-            setText(scanStatusLabel, "Target loaded");
-            setScanProgress(18, "Target ready", "ready");
-
-            resizeRenderer();
-            fitCameraToModel(currentModel);
-
-            showCenterResult(
-                "Model loaded",
-                `${file.name} bol úspešne načítaný.`,
-                "success"
-            );
-        },
-        undefined,
-        (error) => {
-            URL.revokeObjectURL(fileUrl);
-            console.error(error);
-
-            showStatus("Model sa nepodarilo načítať.");
-
-            setText(fileStatusLabel, "Chyba načítania");
-            setText(viewerStatusLabel, "Error");
-            setText(scanStatusLabel, "Loading error");
-            setScanProgress(0, "Loading failed", "error");
-
-            resetStats();
-            resetForensicConsole();
-
-            showCenterResult(
-                "Loading failed",
-                "Model sa nepodarilo načítať. Skús iný .glb súbor.",
-                "error",
-                false
-            );
-        }
-    );
-}
-
-/* =========================
-   MODEL HELPERS
-========================= */
-
-function clearCurrentModel() {
-    clearForensicOverlays();
-    clearModelBaseGlow();
-
-    if (!currentModel) {
-        return;
-    }
-
-    scene.remove(currentModel);
-
-    currentModel.traverse((child) => {
-        if (!child.isMesh) {
-            return;
-        }
-
-        child.geometry?.dispose();
-
-        if (Array.isArray(child.material)) {
-            child.material.forEach((material) => material.dispose());
-        } else {
-            child.material?.dispose();
-        }
-    });
-
-    currentModel = null;
-}
-
-function normalizeModel(model) {
-    model.updateMatrixWorld(true);
-
-    const profile = presetModels[activeModelKey] || presetModels.upload;
-
-    const box = new THREE.Box3().setFromObject(model);
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-
-    box.getSize(size);
-    box.getCenter(center);
-
-    const maxDimension = Math.max(size.x, size.y, size.z);
-
-    if (maxDimension === 0) {
-        return;
-    }
-
-    const scale = profile.fitScale / maxDimension;
-
-    model.scale.setScalar(scale);
-
-    model.position.set(
-        -center.x * scale,
-        -center.y * scale + profile.yOffset,
-        -center.z * scale
+    const baseQuaternion = new THREE.Quaternion(
+        baseRotation[0],
+        baseRotation[1],
+        baseRotation[2],
+        baseRotation[3]
     );
 
-    if (profile.manualPosition) {
-        model.position.x += profile.manualPosition.x;
-        model.position.y += profile.manualPosition.y;
-        model.position.z += profile.manualPosition.z;
-    }
-
-    model.updateMatrixWorld(true);
-
-    fitCameraToModel(model);
-}
-
-function fitCameraToModel(model) {
-    if (!model) {
-        return;
-    }
-
-    const profile = presetModels[activeModelKey] || presetModels.upload;
-
-    const box = new THREE.Box3().setFromObject(model);
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-
-    box.getSize(size);
-    box.getCenter(center);
-
-    const maxSize = Math.max(size.x, size.y, size.z);
-    const distance = Math.max(maxSize * profile.cameraDistance, 1.5);
-
-    camera.position.set(
-        center.x + distance,
-        center.y + distance * 0.45,
-        center.z + distance
+    const offsetQuaternion = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(offset.x, offset.y, offset.z, "XYZ")
     );
 
-    camera.near = Math.max(distance / 100, 0.01);
-    camera.far = distance * 100;
-    camera.updateProjectionMatrix();
-
-    if (profile.manualTarget) {
-        controls.target.set(
-            profile.manualTarget.x,
-            profile.manualTarget.y,
-            profile.manualTarget.z
-        );
-
-        camera.position.set(
-            profile.manualTarget.x + distance,
-            profile.manualTarget.y + distance * 0.35,
-            profile.manualTarget.z + distance
-        );
-    } else {
-        controls.target.copy(center);
-    }
-
-    controls.update();
-}
-
-function enhanceModelMaterials(model) {
-    model.traverse((child) => {
-        if (!child.isMesh || !child.material) {
-            return;
-        }
-
-        child.castShadow = true;
-        child.receiveShadow = true;
-
-        if (Array.isArray(child.material)) {
-            child.material.forEach(updateMaterial);
-        } else {
-            updateMaterial(child.material);
-        }
-    });
-}
-
-function updateMaterial(material) {
-    material.needsUpdate = true;
-
-    if ("metalness" in material) {
-        material.metalness = Math.min(material.metalness + 0.08, 1);
-    }
-
-    if ("roughness" in material) {
-        material.roughness = Math.max(material.roughness, 0.28);
-    }
-}
-
-/* =========================
-   VISUAL MODES
-========================= */
-
-function removeWireframeOverlay(model) {
-    if (!model) {
-        return;
-    }
-
-    model.traverse((child) => {
-        if (!child.isMesh) {
-            return;
-        }
-
-        const overlays = child.children.filter((item) => item.name === "wireframeOverlay");
-
-        overlays.forEach((overlay) => {
-            child.remove(overlay);
-            overlay.geometry?.dispose();
-
-            if (Array.isArray(overlay.material)) {
-                overlay.material.forEach((material) => material.dispose());
-            } else {
-                overlay.material?.dispose();
-            }
-        });
-    });
-}
-
-function resetModelWireframe(model) {
-    if (!model) {
-        return;
-    }
-
-    model.traverse((child) => {
-        if (!child.isMesh || !child.material) {
-            return;
-        }
-
-        const resetMaterial = (material) => {
-            material.wireframe = false;
-            material.transparent = false;
-            material.opacity = 1;
-            material.needsUpdate = true;
-        };
-
-        if (Array.isArray(child.material)) {
-            child.material.forEach(resetMaterial);
-        } else {
-            resetMaterial(child.material);
-        }
-    });
-}
-
-function setModelWireframe(model, enabled) {
-    if (!model) {
-        return;
-    }
-
-    model.traverse((child) => {
-        if (!child.isMesh || !child.material) {
-            return;
-        }
-
-        const setMaterial = (material) => {
-            material.wireframe = enabled;
-            material.needsUpdate = true;
-        };
-
-        if (Array.isArray(child.material)) {
-            child.material.forEach(setMaterial);
-        } else {
-            setMaterial(child.material);
-        }
-    });
-}
-
-function addHybridWireframe(model) {
-    if (!model) {
-        return;
-    }
-
-    model.traverse((child) => {
-        if (!child.isMesh || !child.geometry) {
-            return;
-        }
-
-        const existing = child.children.some((item) => item.name === "wireframeOverlay");
-
-        if (existing) {
-            return;
-        }
-
-        const wireGeometry = new THREE.WireframeGeometry(child.geometry);
-        const wireMaterial = new THREE.LineBasicMaterial({
-            color: 0x62eaff,
-            transparent: true,
-            opacity: 0.42
-        });
-
-        const wireframe = new THREE.LineSegments(wireGeometry, wireMaterial);
-        wireframe.name = "wireframeOverlay";
-
-        child.add(wireframe);
-    });
-}
-
-function applyXrayMaterial(model) {
-    if (!model) {
-        return;
-    }
-
-    model.traverse((child) => {
-        if (!child.isMesh || !child.material) {
-            return;
-        }
-
-        const applyToMaterial = (material) => {
-            material.transparent = true;
-            material.opacity = 0.55;
-            material.needsUpdate = true;
-        };
-
-        if (Array.isArray(child.material)) {
-            child.material.forEach(applyToMaterial);
-        } else {
-            applyToMaterial(child.material);
-        }
-    });
-}
-
-function applyVisualMode(mode) {
-    if (!currentModel) {
-        return;
-    }
-
-    removeWireframeOverlay(currentModel);
-    resetModelWireframe(currentModel);
-
-    if (mode === "wireframe") {
-        setModelWireframe(currentModel, true);
-    }
-
-    if (mode === "hybrid") {
-        applyXrayMaterial(currentModel);
-        addHybridWireframe(currentModel);
-    }
-}
-
-/* =========================
-   EVIDENCE OVERLAYS
-========================= */
-
-function disposeObject3D(object) {
-    if (!object) {
-        return;
-    }
-
-    object.traverse((item) => {
-        if (item.geometry) {
-            item.geometry.dispose();
-        }
-
-        if (item.material) {
-            const materials = Array.isArray(item.material) ? item.material : [item.material];
-
-            materials.forEach((material) => {
-                if (material.map) {
-                    material.map.dispose();
-                }
-
-                material.dispose();
-            });
-        }
-    });
-}
-
-function clearForensicOverlays() {
-    if (boundsHelper) {
-        scene.remove(boundsHelper);
-        disposeObject3D(boundsHelper);
-        boundsHelper = null;
-    }
-
-    if (evidenceMarkerGroup) {
-        if (evidenceMarkerGroup.parent) {
-            evidenceMarkerGroup.parent.remove(evidenceMarkerGroup);
-        }
-
-        disposeObject3D(evidenceMarkerGroup);
-        evidenceMarkerGroup = null;
-    }
-}
-
-function clearModelBaseGlow() {
-    if (!modelBaseGlow) {
-        return;
-    }
-
-    scene.remove(modelBaseGlow);
-    disposeObject3D(modelBaseGlow);
-    modelBaseGlow = null;
-}
-
-function createModelBaseGlow(model) {
-    if (!model) {
-        return;
-    }
-
-    clearModelBaseGlow();
-
-    const box = new THREE.Box3().setFromObject(model);
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-
-    box.getSize(size);
-    box.getCenter(center);
-
-    const radius = Math.max(size.x, size.z, 0.8) * 0.48;
-
-    modelBaseGlow = new THREE.Group();
-    modelBaseGlow.name = "modelBaseGlow";
-
-    const glowMaterial = new THREE.MeshBasicMaterial({
-        color: 0x62eaff,
-        transparent: true,
-        opacity: 0.16,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending
-    });
-
-    const innerMaterial = new THREE.MeshBasicMaterial({
-        color: 0x8b4dff,
-        transparent: true,
-        opacity: 0.08,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending
-    });
-
-    const ringMaterial = new THREE.MeshBasicMaterial({
-        color: 0x62eaff,
-        transparent: true,
-        opacity: 0.32,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending
-    });
-
-    const outerGlow = new THREE.Mesh(
-        new THREE.CircleGeometry(1, 96),
-        glowMaterial
-    );
-
-    const innerGlow = new THREE.Mesh(
-        new THREE.CircleGeometry(0.55, 96),
-        innerMaterial
-    );
-
-    const scannerRing = new THREE.Mesh(
-        new THREE.RingGeometry(0.72, 0.76, 128),
-        ringMaterial
-    );
-
-    outerGlow.rotation.x = -Math.PI / 2;
-    innerGlow.rotation.x = -Math.PI / 2;
-    scannerRing.rotation.x = -Math.PI / 2;
-
-    modelBaseGlow.add(outerGlow);
-    modelBaseGlow.add(innerGlow);
-    modelBaseGlow.add(scannerRing);
-
-    modelBaseGlow.position.set(
-        center.x,
-        box.min.y + 0.018,
-        center.z
-    );
-
-    modelBaseGlow.scale.setScalar(radius);
-
-    scene.add(modelBaseGlow);
-}
-
-function updateModelBaseGlow() {
-    if (!modelBaseGlow || !currentModel) {
-        return;
-    }
-
-    const box = new THREE.Box3().setFromObject(currentModel);
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-
-    box.getSize(size);
-    box.getCenter(center);
-
-    const radius = Math.max(size.x, size.z, 0.8) * 0.48;
-    const time = scanClock.getElapsedTime();
-    const pulse = 1 + Math.sin(time * 2.2) * 0.035;
-
-    modelBaseGlow.position.set(
-        center.x,
-        box.min.y + 0.018,
-        center.z
-    );
-
-    modelBaseGlow.scale.setScalar(radius * pulse);
-
-    modelBaseGlow.rotation.y += 0.002;
-}
-
-function buildEvidenceMarkerData(stats) {
-    const { box, size, center } = stats;
-
-    const safeX = Math.max(size.x * 0.36, 0.15);
-    const safeY = Math.max(size.y * 0.36, 0.15);
-    const safeZ = Math.max(size.z * 0.36, 0.15);
+    const finalQuaternion = offsetQuaternion.multiply(baseQuaternion);
 
     return [
-        {
-            code: "M01",
-            label: "Scale anchor",
-            detail: `${stats.maxSize.toFixed(2)} u longest axis`,
-            color: 0x62eaff,
-            worldPosition: new THREE.Vector3(
-                center.x + safeX,
-                center.y + safeY,
-                center.z + safeZ
-            )
-        },
-        {
-            code: "M02",
-            label: "Surface density",
-            detail: `${stats.surfaceDensity.toLocaleString("sk-SK")} tri/u³`,
-            color: 0xffe27d,
-            worldPosition: new THREE.Vector3(
-                center.x - safeX,
-                center.y + safeY * 0.55,
-                center.z - safeZ
-            )
-        },
-        {
-            code: "M03",
-            label: "Geometry center",
-            detail: `${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)}`,
-            color: 0x8b4dff,
-            worldPosition: center.clone()
-        },
-        {
-            code: "M04",
-            label: "Edge boundary",
-            detail: "Bounding volume limit",
-            color: stats.triangleCount >= 250000 ? 0xff6b8b : 0x7dffb2,
-            worldPosition: new THREE.Vector3(
-                box.min.x + size.x * 0.16,
-                center.y - safeY,
-                box.max.z - size.z * 0.14
-            )
-        }
+        finalQuaternion.x,
+        finalQuaternion.y,
+        finalQuaternion.z,
+        finalQuaternion.w
     ];
 }
 
-function createMarkerLabelSprite(code, label, detail, color, localScaleFix) {
-    const canvas = document.createElement("canvas");
-    canvas.width = 512;
-    canvas.height = 180;
+function reloadActiveSplatModel() {
+    if (activeModelKey === "upload") {
+        if (!activeUploadFile) {
+            showToast("Uploaded model is not available", "warning");
+            return;
+        }
 
-    const context = canvas.getContext("2d");
-
-    context.clearRect(0, 0, canvas.width, canvas.height);
-
-    context.fillStyle = "rgba(4, 10, 22, 0.78)";
-    roundRect(context, 12, 16, 488, 132, 22);
-    context.fill();
-
-    context.strokeStyle = `#${color.toString(16).padStart(6, "0")}`;
-    context.lineWidth = 3;
-    roundRect(context, 12, 16, 488, 132, 22);
-    context.stroke();
-
-    context.fillStyle = `#${color.toString(16).padStart(6, "0")}`;
-    context.font = "900 38px Arial";
-    context.fillText(code, 34, 62);
-
-    context.fillStyle = "#ffffff";
-    context.font = "900 30px Arial";
-    context.fillText(label, 34, 100);
-
-    context.fillStyle = "rgba(225, 248, 255, 0.72)";
-    context.font = "700 22px Arial";
-    context.fillText(detail, 34, 132);
-
-    const texture = new THREE.CanvasTexture(canvas);
-
-    if ("colorSpace" in texture) {
-        texture.colorSpace = THREE.SRGBColorSpace;
-    }
-
-    texture.needsUpdate = true;
-
-    const material = new THREE.SpriteMaterial({
-        map: texture,
-        transparent: true,
-        depthTest: false,
-        depthWrite: false
-    });
-
-    const sprite = new THREE.Sprite(material);
-
-    sprite.scale.set(
-        0.46 / localScaleFix,
-        0.16 / localScaleFix,
-        1
-    );
-
-    sprite.position.set(
-        0.30 / localScaleFix,
-        0.13 / localScaleFix,
-        0
-    );
-
-    sprite.userData.billboard = true;
-
-    return sprite;
-}
-
-function roundRect(context, x, y, width, height, radius) {
-    context.beginPath();
-    context.moveTo(x + radius, y);
-    context.lineTo(x + width - radius, y);
-    context.quadraticCurveTo(x + width, y, x + width, y + radius);
-    context.lineTo(x + width, y + height - radius);
-    context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    context.lineTo(x + radius, y + height);
-    context.quadraticCurveTo(x, y + height, x, y + height - radius);
-    context.lineTo(x, y + radius);
-    context.quadraticCurveTo(x, y, x + radius, y);
-    context.closePath();
-}
-
-function createForensicOverlays(model, stats) {
-    if (!model || !stats) {
+        loadSplatModel("upload", activeUploadFile);
         return;
     }
 
-    clearForensicOverlays();
-
-    boundsHelper = new THREE.BoxHelper(model, 0x62eaff);
-    boundsHelper.name = "forensicBoundingBox";
-
-    if (boundsHelper.material) {
-        boundsHelper.material.transparent = true;
-        boundsHelper.material.opacity = 0.42;
-        boundsHelper.material.depthTest = false;
-    }
-
-    scene.add(boundsHelper);
-
-    evidenceMarkerGroup = new THREE.Group();
-    evidenceMarkerGroup.name = "evidenceMarkerGroup";
-    model.add(evidenceMarkerGroup);
-
-    const localScaleFix = Math.max(model.scale.x || 1, 0.001);
-    const markerRadius = Math.max(stats.maxSize * 0.012, 0.024) / localScaleFix;
-
-    const markers = buildEvidenceMarkerData(stats);
-
-    markers.forEach((markerData, index) => {
-        const marker = new THREE.Group();
-        marker.name = `evidenceMarker_${markerData.code}`;
-        marker.userData.pulseOffset = index * 0.65;
-
-        const localPosition = model.worldToLocal(markerData.worldPosition.clone());
-        marker.position.copy(localPosition);
-
-        const core = new THREE.Mesh(
-            new THREE.SphereGeometry(markerRadius, 20, 20),
-            new THREE.MeshBasicMaterial({
-                color: markerData.color,
-                transparent: true,
-                opacity: 0.96
-            })
-        );
-
-        const halo = new THREE.Mesh(
-            new THREE.RingGeometry(markerRadius * 1.8, markerRadius * 2.8, 48),
-            new THREE.MeshBasicMaterial({
-                color: markerData.color,
-                transparent: true,
-                opacity: 0.42,
-                side: THREE.DoubleSide,
-                depthWrite: false,
-                blending: THREE.AdditiveBlending
-            })
-        );
-
-        halo.userData.billboard = true;
-
-        const beam = new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints([
-                new THREE.Vector3(0, 0, 0),
-                new THREE.Vector3(0, markerRadius * 4.5, 0)
-            ]),
-            new THREE.LineBasicMaterial({
-                color: markerData.color,
-                transparent: true,
-                opacity: 0.55
-            })
-        );
-
-        const label = createMarkerLabelSprite(
-            markerData.code,
-            markerData.label,
-            markerData.detail,
-            markerData.color,
-            localScaleFix
-        );
-
-        marker.add(core);
-        marker.add(halo);
-        marker.add(beam);
-        marker.add(label);
-
-        evidenceMarkerGroup.add(marker);
-    });
+    loadSplatModel(activeModelKey);
 }
 
-function updateForensicOverlays() {
-    if (boundsHelper && currentModel) {
-        boundsHelper.update();
-    }
+function rotateActiveModel(axis, amount) {
+    const offset = rotationOffsets[activeModelKey] || rotationOffsets.upload;
 
-    if (!evidenceMarkerGroup) {
-        return;
-    }
+    offset[axis] += amount;
 
-    const time = scanClock.getElapsedTime();
+    reloadActiveSplatModel();
+}
 
-    evidenceMarkerGroup.children.forEach((marker) => {
-        const pulse = 1 + Math.sin(time * 3 + marker.userData.pulseOffset) * 0.12;
-        marker.scale.setScalar(pulse);
+function resetActiveModelRotation() {
+    const offset = rotationOffsets[activeModelKey] || rotationOffsets.upload;
 
-        marker.traverse((child) => {
-            if (child.userData.billboard) {
-                child.lookAt(camera.position);
-            }
-        });
-    });
+    offset.x = 0;
+    offset.y = 0;
+    offset.z = 0;
+
+    reloadActiveSplatModel();
+}
+
+function applyVisualStyleMode(mode) {
+    const modeClasses = ["mode-natural", "mode-xray", "mode-density"];
+
+    viewerShell?.classList.remove(...modeClasses);
+    viewerStage?.classList.remove(...modeClasses);
+
+    viewerShell?.classList.add(`mode-${mode}`);
+    viewerStage?.classList.add(`mode-${mode}`);
 }
 
 /* =========================
-   FORENSIC SCAN
+   LOAD SPLAT MODEL
+========================= */
+
+async function loadSplatModel(modelKey, customFile = null) {
+    if (isLoading) return;
+
+    const isUpload = Boolean(customFile);
+
+    if (isUpload) {
+        activeUploadFile = customFile;
+    } else {
+        activeUploadFile = null;
+    }
+    const preset = isUpload ? null : presetModels[modelKey];
+
+    if (!isUpload && !preset) return;
+
+    isLoading = true;
+    isScanning = false;
+
+    activeModelKey = isUpload ? "upload" : modelKey;
+    activeModelPath = isUpload ? URL.createObjectURL(customFile) : preset.path;
+    activeModelTitle = isUpload ? customFile.name : preset.title;
+
+    syncModelCards(activeModelKey);
+    resetStats();
+    resetForensicConsole();
+    hideCenterResult();
+
+    setText(fileNameLabel, isUpload ? customFile.name : preset.name);
+    setText(fileFormatLabel, isUpload ? customFile.name.split(".").pop().toUpperCase() : "PLY");
+    setText(fileSizeLabel, isUpload ? formatFileSize(customFile.size) : "Calculating...");
+    setText(fileStatusLabel, "Načítavanie...");
+
+    setText(viewerStatusLabel, "Loading");
+    setText(viewerFileLabel, isUpload ? customFile.name : preset.name);
+    setText(scanStatusLabel, "Loading target");
+    setScanProgress(8, "Loading splat", "scanning");
+
+    showStatus(`Načítavam Gaussian Splat model...`);
+
+    try {
+        if (viewerStarted) {
+            await splatViewer.removeSplatScenes([0]);
+        }
+
+        currentSplatMeta = isUpload
+            ? await getUploadMeta(customFile)
+            : await getPresetMeta(preset.path);
+
+        setText(fileSizeLabel, formatFileSize(currentSplatMeta.sizeBytes));
+
+        await splatViewer.addSplatScene(activeModelPath, {
+            splatAlphaRemovalThreshold: getAlphaThreshold(),
+            showLoadingUI: true,
+            progressiveLoad: true,
+            position: isUpload ? [0, 0, 0] : preset.position,
+            rotation: isUpload
+                ? buildSceneRotation([0, 0, 0, 1], "upload")
+                : buildSceneRotation(preset.rotation, activeModelKey),
+            scale: isUpload ? [1, 1, 1] : preset.scale
+        });
+
+        if (!viewerStarted) {
+            splatViewer.start();
+            viewerStarted = true;
+        }
+
+        if (!isUpload) {
+            resetCameraForPreset(modelKey);
+        }
+
+        hidePlaceholder();
+
+        setText(fileStatusLabel, "Splat model načítaný");
+        setText(viewerStatusLabel, "Model loaded");
+        setText(scanStatusLabel, "Target loaded");
+        setScanProgress(18, "Target ready", "ready");
+
+        showCenterResult(
+            "Model loaded",
+            `${activeModelTitle} bol úspešne načítaný.`,
+            "success"
+        );
+
+        if (isUpload) {
+            URL.revokeObjectURL(activeModelPath);
+        }
+    } catch (error) {
+        console.error(error);
+
+        showStatus("Splat model sa nepodarilo načítať.");
+        showCenterResult(
+            "Loading failed",
+            "Skontroluj, či ide o Splat PLY / SPLAT / KSPLAT súbor.",
+            "error",
+            false
+        );
+
+        setText(fileStatusLabel, "Chyba načítania");
+        setText(viewerStatusLabel, "Error");
+        setText(scanStatusLabel, "Loading error");
+        setScanProgress(0, "Loading failed", "error");
+
+        if (isUpload) {
+            URL.revokeObjectURL(activeModelPath);
+        }
+    }
+
+    isLoading = false;
+}
+
+/* =========================
+   SCAN SIMULATION FOR SPLATS
 ========================= */
 
 function runForensicScan() {
-    if (isScanning) {
-        return;
-    }
+    if (isScanning || isLoading) return;
 
-    if (!currentModel) {
+    if (!viewerStarted || !currentSplatMeta) {
         setText(scanStatusLabel, "No model selected");
         setText(viewerStatusLabel, "No target");
-
-        if (consoleState) {
-            consoleState.textContent = "ERROR";
-        }
-
-        if (consoleLines) {
-            consoleLines.innerHTML = "";
-        }
-
-        addConsoleLine("No target model detected.", "danger");
-        addConsoleLine("Load GLB model before running scan.", "warn");
-
+        setScanProgress(0, "No target", "error");
         showToast("No model selected", "warning");
         return;
     }
 
     isScanning = true;
-    resetStats();
-
-    forensicPanel?.classList.remove("scan-finished");
-    viewerShell?.classList.add("scan-core-active");
-    viewer?.classList.add("scan-core-active");
 
     if (consoleState) {
         consoleState.textContent = "SCANNING";
@@ -1486,67 +719,53 @@ function runForensicScan() {
         forensicVerdict.innerHTML = `
             <span>Verdict</span>
             <strong>Scanning...</strong>
-            <p>Forensic analysis is currently running.</p>
+            <p>Gaussian Splat reconstruction is being analyzed.</p>
         `;
     }
 
     setText(scanStatusLabel, "Scanning...");
     setText(viewerStatusLabel, "Scanning");
-    setText(fileStatusLabel, "Forensic scan running");
-    setScanProgress(32, "Mesh reading", "scanning");
-
-
+    setText(fileStatusLabel, "Splat scan running");
+    setScanProgress(32, "Reading splats", "scanning");
 
     viewerShell?.classList.add("is-scanning");
-    viewer?.classList.add("is-scanning");
+    viewerStage?.classList.add("is-scanning");
 
-    addConsoleLine("Initializing forensic scan core...");
-    addConsoleLine("Locking target transform...");
-    addConsoleLine("Reading mesh hierarchy...");
-
-    showToast("Forensic scan started");
+    addConsoleLine("Initializing Gaussian Splat scan...");
+    addConsoleLine("Reading splat cloud metadata...");
+    addConsoleLine("Checking PLY header...");
 
     setTimeout(() => {
-        addConsoleLine("Geometry buffers detected.", "ok");
-    }, 260);
+        addConsoleLine("Splat buffers detected.", "ok");
+        setScanProgress(52, "Buffer check", "scanning");
+    }, 280);
 
     setTimeout(() => {
-        addConsoleLine("Calculating bounding dimensions...");
-        setScanProgress(55, "Bounds analysis", "scanning");
-    }, 520);
+        addConsoleLine("Estimating splat density...");
+        setScanProgress(74, "Density check", "scanning");
+    }, 650);
 
     setTimeout(() => {
-        addConsoleLine("Estimating surface density...");
-        setScanProgress(78, "Density check", "scanning");
-    }, 780);
+        updateSplatStats(currentSplatMeta);
 
-    setTimeout(() => {
-        const stats = updateModelStats(currentModel);
-
-        if (!stats) {
-            isScanning = false;
-            viewerShell?.classList.remove("is-scanning");
-            viewer?.classList.remove("is-scanning");
-            return;
+        if (currentSplatMeta.looksLikeGaussianSplat) {
+            addConsoleLine("Gaussian Splat properties detected.", "ok");
+        } else {
+            addConsoleLine("PLY header does not clearly expose splat properties.", "warn");
         }
 
-        createForensicOverlays(currentModel, stats);
-
-        addConsoleLine("Geometry bounds calculated.", "ok");
-        addConsoleLine("Surface density estimated.", "ok");
-        addConsoleLine("Evidence markers generated.", "ok");
-
-        if (stats.triangleCount >= 250000) {
-            addConsoleLine("High polygon complexity detected.", "warn");
+        if (currentSplatMeta.splatCount) {
+            addConsoleLine(
+                `${currentSplatMeta.splatCount.toLocaleString("sk-SK")} splats indexed.`,
+                "ok"
+            );
+        } else {
+            addConsoleLine("Splat count unavailable.", "warn");
         }
 
-        if (stats.surfaceDensity >= 45000) {
-            addConsoleLine("Dense reconstruction area detected.", "danger");
-        }
+        addConsoleLine("Splat report generated.", "ok");
 
-        addConsoleLine("Forensic report generated.", "ok");
-
-        setForensicVerdict(stats);
+        setForensicVerdict(currentSplatMeta);
 
         if (consoleState) {
             consoleState.textContent = "DONE";
@@ -1558,22 +777,43 @@ function runForensicScan() {
         setScanProgress(100, "Report complete", "complete");
 
         viewerShell?.classList.remove("is-scanning");
-        viewer?.classList.remove("is-scanning");
-
-        viewerShell?.classList.remove("scan-core-active");
-        viewer?.classList.remove("scan-core-active");
-
-        forensicPanel?.classList.add("scan-finished");
-
-        viewer?.classList.add("scan-burst");
-
-        setTimeout(() => {
-            viewer?.classList.remove("scan-burst");
-        }, 1400);
+        viewerStage?.classList.remove("is-scanning");
 
         showToast("Forensic scan complete");
         isScanning = false;
-    }, 1150);
+    }, 1050);
+}
+
+/* =========================
+   CAMERA AUTO ROTATE
+========================= */
+
+function startCameraOrbit() {
+    if (cameraRotationFrame) return;
+
+    const loop = () => {
+        if (isAutoRotating && splatViewer.camera) {
+            const preset = presetModels[activeModelKey] || presetModels.room;
+            const lookAt = preset.lookAt;
+
+            cameraOrbitAngle += 0.006;
+
+            const radius = preset.orbitRadius || 3.0;
+            const height = preset.cameraPosition[2] || 1.6;
+
+            splatViewer.camera.position.set(
+                Math.sin(cameraOrbitAngle) * radius,
+                -Math.cos(cameraOrbitAngle) * radius,
+                height
+            );
+
+            splatViewer.camera.lookAt(lookAt[0], lookAt[1], lookAt[2]);
+        }
+
+        cameraRotationFrame = requestAnimationFrame(loop);
+    };
+
+    loop();
 }
 
 /* =========================
@@ -1582,7 +822,22 @@ function runForensicScan() {
 
 modelInput?.addEventListener("change", () => {
     const file = modelInput.files[0];
-    handleModelFile(file);
+
+    if (!file) return;
+
+    const name = file.name.toLowerCase();
+
+    if (!name.endsWith(".ply") && !name.endsWith(".splat") && !name.endsWith(".ksplat")) {
+        showCenterResult(
+            "Unsupported file",
+            "Podporované sú iba .ply, .splat alebo .ksplat súbory.",
+            "warning",
+            false
+        );
+        return;
+    }
+
+    loadSplatModel("upload", file);
 });
 
 dropZone?.addEventListener("dragover", (event) => {
@@ -1599,58 +854,82 @@ dropZone?.addEventListener("drop", (event) => {
     dropZone.classList.remove("drag-over");
 
     const file = event.dataTransfer.files[0];
-    handleModelFile(file);
-});
 
-resetViewBtn?.addEventListener("click", () => {
-    if (currentModel) {
-        fitCameraToModel(currentModel);
-        showToast("View reset");
+    if (!file) return;
+
+    const name = file.name.toLowerCase();
+
+    if (!name.endsWith(".ply") && !name.endsWith(".splat") && !name.endsWith(".ksplat")) {
+        showCenterResult(
+            "Unsupported file",
+            "Podporované sú iba .ply, .splat alebo .ksplat súbory.",
+            "warning",
+            false
+        );
         return;
     }
 
-    camera.position.set(3.5, 2.4, 4.5);
-    controls.target.set(0, 0, 0);
-    controls.update();
+    loadSplatModel("upload", file);
+});
 
+modelCards.forEach((card) => {
+    card.addEventListener("click", () => {
+        const modelKey = card.dataset.model;
+        loadSplatModel(modelKey);
+    });
+});
+
+modeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+        visualMode = button.dataset.mode || "natural";
+
+        modeButtons.forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+
+        const label = button.querySelector(".mode-label")?.textContent.trim() || button.textContent.trim();
+
+        setText(viewerModeLabel, label);
+
+        applyVisualStyleMode(visualMode);
+
+        if (viewerStarted && presetOrder.includes(activeModelKey)) {
+            loadSplatModel(activeModelKey);
+        }
+
+        showToast(`${label} mode enabled`);
+    });
+});
+
+runScanBtn?.addEventListener("click", runForensicScan);
+
+resetViewBtn?.addEventListener("click", () => {
+    resetCameraForPreset(activeModelKey);
     showToast("View reset");
 });
 
 autoRotateBtn?.addEventListener("click", () => {
     isAutoRotating = !isAutoRotating;
+
     setIconButtonLabel(
         autoRotateBtn,
         isAutoRotating ? "Auto rotate: ON" : "Auto rotate: OFF"
     );
+
+    if (isAutoRotating) {
+        startCameraOrbit();
+    }
+
     showToast(isAutoRotating ? "Auto rotate enabled" : "Auto rotate disabled");
 });
 
 gridBtn?.addEventListener("click", () => {
-    grid.visible = !grid.visible;
-    setIconButtonLabel(
-        gridBtn,
-        grid.visible ? "Grid: ON" : "Grid: OFF"
-    );
-    showToast(grid.visible ? "Grid enabled" : "Grid disabled");
-});
+    viewerShell?.classList.toggle("grid-hidden");
+    viewerStage?.classList.toggle("grid-hidden");
 
-modeButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-        visualMode = button.dataset.mode;
+    const isHidden = viewerShell?.classList.contains("grid-hidden");
 
-        modeButtons.forEach((item) => item.classList.remove("active"));
-        button.classList.add("active");
-
-        setText(viewerModeLabel, button.textContent.trim());
-
-        applyVisualMode(visualMode);
-
-        if (button.textContent.trim().toLowerCase() === "x-ray") {
-            showToast("X-Ray mode enabled");
-        } else {
-            showToast(`${button.textContent.trim()} mode enabled`);
-        }
-    });
+    setIconButtonLabel(gridBtn, isHidden ? "Grid: OFF" : "Grid: ON");
+    showToast(isHidden ? "Grid disabled" : "Grid enabled");
 });
 
 fullscreenBtn?.addEventListener("click", async () => {
@@ -1662,8 +941,6 @@ fullscreenBtn?.addEventListener("click", async () => {
             await document.exitFullscreen();
             setIconButtonLabel(fullscreenBtn, "Fullscreen");
         }
-
-        setTimeout(resizeRenderer, 150);
     } catch (error) {
         console.error(error);
         showToast("Fullscreen failed", "error");
@@ -1671,73 +948,52 @@ fullscreenBtn?.addEventListener("click", async () => {
 });
 
 document.addEventListener("fullscreenchange", () => {
-    if (fullscreenBtn) {
-        setIconButtonLabel(
-            fullscreenBtn,
-            document.fullscreenElement ? "Exit fullscreen" : "Fullscreen"
-        );
-    }
-
-    setTimeout(resizeRenderer, 150);
+    setIconButtonLabel(
+        fullscreenBtn,
+        document.fullscreenElement ? "Exit fullscreen" : "Fullscreen"
+    );
 });
 
 screenshotBtn?.addEventListener("click", () => {
-    renderer.render(scene, camera);
+    const canvas = viewerStage.querySelector("canvas");
+
+    if (!canvas) {
+        showToast("Screenshot failed", "error");
+        return;
+    }
 
     const link = document.createElement("a");
-    link.download = "3d-forensic-scan.png";
-    link.href = renderer.domElement.toDataURL("image/png");
+    link.download = "3d-gaussian-splat-scan.png";
+    link.href = canvas.toDataURL("image/png");
     link.click();
 
     showToast("Screenshot PNG saved");
 });
 
-modelCards.forEach((card) => {
-    card.addEventListener("click", () => {
-        const modelKey = card.dataset.model;
-
-        modelCards.forEach((item) => item.classList.remove("active"));
-        card.classList.add("active");
-
-        loadPresetModel(modelKey);
-    });
+rotateModelLeftBtn?.addEventListener("click", () => {
+    rotateActiveModel("z", MODEL_ROTATION_STEP);
+    showToast("Model rotated left");
 });
 
-runScanBtn?.addEventListener("click", runForensicScan);
+rotateModelRightBtn?.addEventListener("click", () => {
+    rotateActiveModel("z", -MODEL_ROTATION_STEP);
+    showToast("Model rotated right");
+});
+
+resetModelRotationBtn?.addEventListener("click", () => {
+    resetActiveModelRotation();
+    showToast("Model rotation reset");
+});
 
 /* =========================
-   RENDER LOOP
+   INIT
 ========================= */
-
-function resizeRenderer() {
-    const rect = viewer.getBoundingClientRect();
-    const width = Math.max(rect.width, 1);
-    const height = Math.max(rect.height, 1);
-
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-
-    renderer.setSize(width, height, false);
-}
-
-function animate() {
-    requestAnimationFrame(animate);
-
-    if (currentModel && isAutoRotating && !isScanning) {
-        currentModel.rotation.y += 0.0025;
-    }
-
-    updateModelBaseGlow();
-    updateForensicOverlays();
-
-    controls.update();
-    renderer.render(scene, camera);
-}
-
-window.addEventListener("resize", resizeRenderer);
 
 resetStats();
 resetForensicConsole();
+syncModelCards("room");
+applyVisualStyleMode("natural");
+setIconButtonLabel(autoRotateBtn, "Auto rotate: OFF");
+setScanProgress(0, "Awaiting target");
 
-setTimeout(resizeRenderer, 100);
-animate();
+loadSplatModel("room");

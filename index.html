@@ -26,36 +26,36 @@
 
     <main class="page">
         <section class="hero">
-            <p class="label">3D model analysis lab</p>
+            <p class="label">3D Gaussian Splatting lab</p>
 
             <h1>3D Forensic Scanner</h1>
 
             <p class="description">
-                Interaktívne laboratórium na kontrolu 3D modelov pomocou režimov zobrazenia,
-                geometrických štatistík a exportu náhľadu.
+                Interaktívne laboratórium na kontrolu 3D Gaussian Splatting modelov pomocou
+                vizuálnych režimov, štatistík splatov a exportu náhľadu.
             </p>
 
             <div class="upload-box">
                 <div class="panel-header">
                     <div>
                         <span class="panel-kicker">Input</span>
-                        <h2>Scan 3D model</h2>
+                        <h2>Scan splat model</h2>
                     </div>
 
-                    <span class="format-pill">.GLB</span>
+                    <span class="format-pill">.PLY</span>
                 </div>
 
                 <p class="panel-note">
-                    Vyber pripravený model alebo nahraj vlastný súbor vo formáte GLB.
+                    Vyber pripravený Gaussian Splat model alebo nahraj vlastný súbor vo formáte PLY, SPLAT alebo KSPLAT.
                 </p>
 
                 <label class="drop-zone" id="dropZone" for="modelInput">
-                    <input type="file" id="modelInput" accept=".glb">
+                    <input type="file" id="modelInput" accept=".ply,.splat,.ksplat">
 
                     <span class="drop-icon">⬆</span>
-                    <strong>Drop model for analysis</strong>
+                    <strong>Drop splat model for analysis</strong>
                     <small>alebo klikni pre výber súboru</small>
-                    <em>.glb scan</em>
+                    <em>.ply / .splat / .ksplat</em>
                 </label>
 
                 <div class="section-heading">
@@ -156,7 +156,7 @@
 
                 <div class="system-strip" aria-hidden="true">
                     <span>CORE ONLINE</span>
-                    <span>GLB PIPELINE ACTIVE</span>
+                    <span>SPLAT PIPELINE ACTIVE</span>
                     <span>SCAN READY</span>
                 </div>
 
@@ -209,7 +209,7 @@
                     </div>
 
                     <div class="hud-status">
-                        <span>Mode: <strong id="viewerMode">Normal</strong></span>
+                        <span>Mode: <strong id="viewerMode">Natural</strong></span>
                         <span>Status: <strong id="viewerStatus">Ready</strong></span>
                         <span>File: <strong id="viewerFile">—</strong></span>
                     </div>
@@ -221,20 +221,20 @@
                             <span>3D</span>
                         </div>
 
-                        <p class="empty-kicker">Scanner ready</p>
+                        <p class="empty-kicker">Splat scanner ready</p>
 
-                        <h2>Vyber cieľ skenovania alebo nahraj vlastný .glb</h2>
+                        <h2>Vyber cieľ skenovania alebo nahraj vlastný Splat PLY</h2>
 
                         <p class="empty-description">
-                            Analyzuj miestnosť, model študenta alebo objekt pomocou povrchového,
-                            drôtového a X-Ray režimu.
+                            Analyzuj miestnosť, model študenta alebo objekt pomocou režimov
+                            Natural, Clean a Soft pre Gaussian Splatting zobrazenie.
                         </p>
 
                         <div class="empty-badges">
-                            <span>Room scan</span>
-                            <span>Student scan</span>
-                            <span>Object scan</span>
-                            <span>.glb analysis</span>
+                            <span>Room splat</span>
+                            <span>Student splat</span>
+                            <span>Object splat</span>
+                            <span>Splat PLY</span>
                         </div>
                     </div>
                 </div>
@@ -279,23 +279,23 @@
                     </div>
 
                     <div>
-                        <span>Dimensions</span>
+                        <span>Type</span>
                         <strong id="scanDimensions">—</strong>
                     </div>
 
                     <div>
-                        <span>Meshes</span>
+                        <span>Scene</span>
                         <strong id="meshCount">—</strong>
                     </div>
 
                     <div>
-                        <span>Vertices</span>
+                        <span>Splats</span>
                         <strong id="vertexCount">—</strong>
                     </div>
 
                     <div>
-                        <span>Triangles</span>
-                        <strong id="triangleCount">—</strong>
+                        <span>Quality</span>
+                        <strong id="qualityScore">—</strong>
                     </div>
                 </div>
 
@@ -322,32 +322,19 @@
                 <div class="forensic-section-title">View modes</div>
 
                 <div class="scan-actions scan-actions-3">
-                    <button class="mode-btn active" data-mode="normal" type="button">
+                    <button class="mode-btn active" data-mode="natural" type="button">
                         <span class="mode-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M6 7.5L12 4L18 7.5V16.5L12 20L6 16.5V7.5Z" />
-                                <path d="M12 4V20" />
-                                <path d="M6 7.5L12 11L18 7.5" />
+                                <circle cx="12" cy="12" r="6.5" />
+                                <path d="M12 5.5V18.5" />
+                                <path d="M5.5 12H18.5" />
                             </svg>
                         </span>
-                        <span class="mode-label">Surface</span>
+                        <span class="mode-label">Natural</span>
                         <span class="mode-spacer" aria-hidden="true"></span>
                     </button>
 
-                    <button class="mode-btn" data-mode="wireframe" type="button">
-                        <span class="mode-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M6 7.5L12 4L18 7.5V16.5L12 20L6 16.5V7.5Z" />
-                                <path d="M12 4V20" />
-                                <path d="M6 7.5L12 11L18 7.5" />
-                                <path d="M6 16.5L12 11L18 16.5" />
-                            </svg>
-                        </span>
-                        <span class="mode-label">Wireframe</span>
-                        <span class="mode-spacer" aria-hidden="true"></span>
-                    </button>
-
-                    <button class="mode-btn" data-mode="hybrid" type="button">
+                    <button class="mode-btn" data-mode="xray" type="button">
                         <span class="mode-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" fill="none">
                                 <path
@@ -357,6 +344,21 @@
                             </svg>
                         </span>
                         <span class="mode-label">X-Ray</span>
+                        <span class="mode-spacer" aria-hidden="true"></span>
+                    </button>
+
+                    <button class="mode-btn" data-mode="density" type="button">
+                        <span class="mode-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M4 12H8" />
+                                <path d="M16 12H20" />
+                                <path d="M12 4V8" />
+                                <path d="M12 16V20" />
+                                <circle cx="12" cy="12" r="3.4" />
+                                <circle cx="12" cy="12" r="1.1" />
+                            </svg>
+                        </span>
+                        <span class="mode-label">Density</span>
                         <span class="mode-spacer" aria-hidden="true"></span>
                     </button>
                 </div>
@@ -387,7 +389,7 @@
                             </svg>
                         </span>
 
-                        <span class="button-label">Auto rotate: ON</span>
+                        <span class="button-label">Auto rotate: OFF</span>
                         <span class="button-spacer" aria-hidden="true"></span>
                     </button>
 
@@ -405,8 +407,39 @@
                         <span class="button-label">Grid: ON</span>
                         <span class="button-spacer" aria-hidden="true"></span>
                     </button>
+                    <div class="scan-actions rotation-actions rotation-actions-compact">
+                        <button id="rotateModelLeftBtn" class="icon-action-btn" type="button">
+                            <span class="action-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path d="M8 7H4V3" />
+                                    <path
+                                        d="M4.8 7.8C6.3 5.5 8.9 4 12 4C16.4 4 20 7.6 20 12C20 16.4 16.4 20 12 20C9.3 20 6.9 18.7 5.5 16.7" />
+                                </svg>
+                            </span>
+                            <span class="button-label">Left</span>
+                        </button>
 
+                        <button id="resetModelRotationBtn" class="icon-action-btn rotation-reset-btn" type="button">
+                            <span class="action-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path d="M4 4L20 20" />
+                                    <path d="M20 4L4 20" />
+                                </svg>
+                            </span>
+                            <span class="button-label">Reset</span>
+                        </button>
 
+                        <button id="rotateModelRightBtn" class="icon-action-btn" type="button">
+                            <span class="action-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path d="M16 7H20V3" />
+                                    <path
+                                        d="M19.2 7.8C17.7 5.5 15.1 4 12 4C7.6 4 4 7.6 4 12C4 16.4 7.6 20 12 20C14.7 20 17.1 18.7 18.5 16.7" />
+                                </svg>
+                            </span>
+                            <span class="button-label">Right</span>
+                        </button>
+                    </div>
                 </div>
             </aside>
         </section>
@@ -415,8 +448,8 @@
     <script type="importmap">
 {
     "imports": {
-        "three": "./vendor/three/three.module.js",
-        "three/addons/": "./vendor/three/addons/"
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "@mkkellogg/gaussian-splats-3d": "https://cdn.jsdelivr.net/npm/@mkkellogg/gaussian-splats-3d@0.4.7/build/gaussian-splats-3d.module.js"
     }
 }
     </script>
