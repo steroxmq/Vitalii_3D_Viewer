@@ -4214,3 +4214,44 @@ h1 {
         gap: 2px;
     }
 }
+
+/* =========================================================
+   FIX MOUSE ORBIT CONTROLS FOR GAUSSIAN SPLAT VIEWER
+========================================================= */
+
+.viewer-stage canvas {
+    pointer-events: auto !important;
+    cursor: grab;
+}
+
+.viewer-stage:active canvas {
+    cursor: grabbing;
+}
+
+/* Decorative layers must not block mouse controls */
+.viewer-glow,
+.viewer-scanline,
+.scanner-haze,
+.chamber-floor,
+.data-orbit,
+.system-strip,
+.viewer-reticle,
+.viewer-hud,
+.viewer-placeholder,
+.viewer-result,
+.toast {
+    pointer-events: none !important;
+}
+
+/* Toolbar buttons must still be clickable */
+.viewer-toolbar,
+.viewer-toolbar *,
+.forensic-panel,
+.forensic-panel *,
+.upload-box,
+.upload-box *,
+.info-open-btn,
+.info-modal,
+.info-modal * {
+    pointer-events: auto !important;
+}
