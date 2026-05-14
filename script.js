@@ -90,6 +90,7 @@ const rotationOffsets = {
 };
 
 let activeUploadFile = null;
+let activeUploadUrl = null;
 
 const MODEL_ROTATION_STEP = THREE.MathUtils.degToRad(15);
 
@@ -296,6 +297,27 @@ function getAlphaThreshold() {
     if (visualMode === "xray") return 4;
     if (visualMode === "density") return 38;
     return 10;
+}
+
+function getSceneFormat(formatOrName) {
+    const value = String(formatOrName || "")
+        .split(".")
+        .pop()
+        .toLowerCase();
+
+    if (value === "ply") {
+        return GaussianSplats3D.SceneFormat.Ply;
+    }
+
+    if (value === "splat") {
+        return GaussianSplats3D.SceneFormat.Splat;
+    }
+
+    if (value === "ksplat") {
+        return GaussianSplats3D.SceneFormat.KSplat;
+    }
+
+    return GaussianSplats3D.SceneFormat.Ply;
 }
 
 function syncModelCards(modelKey = activeModelKey) {
@@ -660,7 +682,18 @@ async function loadSplatModel(modelKey, customFile = null) {
     isScanning = false;
 
     activeModelKey = isUpload ? "upload" : modelKey;
-    activeModelPath = isUpload ? URL.createObjectURL(customFile) : preset.path;
+
+    if (isUpload) {
+        if (activeUploadUrl) {
+            URL.revokeObjectURL(activeUploadUrl);
+        }
+
+        activeUploadUrl = URL.createObjectURL(customFile);
+        activeModelPath = activeUploadUrl;
+    } else {
+        activeModelPath = preset.path;
+    }
+
     activeModelTitle = isUpload ? customFile.name : preset.title;
 
     syncModelCards(activeModelKey);
@@ -691,10 +724,15 @@ async function loadSplatModel(modelKey, customFile = null) {
 
         setText(fileSizeLabel, formatFileSize(currentSplatMeta.sizeBytes));
 
+        const sceneFormat = isUpload
+            ? getSceneFormat(customFile.name)
+            : getSceneFormat(preset.name);
+
         await splatViewer.addSplatScene(activeModelPath, {
-            splatAlphaRemovalThreshold: getAlphaThreshold(),
+            format: sceneFormat,
+            splatAlphaRemovalThreshold: isUpload ? 1 : getAlphaThreshold(),
             showLoadingUI: false,
-            progressiveLoad: true,
+            progressiveLoad: !isUpload,
             position: isUpload ? [0, 0, 0] : preset.position,
             rotation: isUpload
                 ? buildSceneRotation([0, 0, 0, 1], "upload")
@@ -709,6 +747,9 @@ async function loadSplatModel(modelKey, customFile = null) {
 
         if (!isUpload) {
             resetCameraForPreset(modelKey);
+        } else if (splatViewer.camera) {
+            splatViewer.camera.position.set(0, -3.2, 1.4);
+            splatViewer.camera.lookAt(0, 0, 0);
         }
 
         hidePlaceholder();
@@ -724,9 +765,6 @@ async function loadSplatModel(modelKey, customFile = null) {
             "success"
         );
 
-        if (isUpload) {
-            URL.revokeObjectURL(activeModelPath);
-        }
     } catch (error) {
         console.error(error);
 
@@ -743,9 +781,6 @@ async function loadSplatModel(modelKey, customFile = null) {
         setText(scanStatusLabel, "Loading error");
         setScanProgress(0, "Loading failed", "error");
 
-        if (isUpload) {
-            URL.revokeObjectURL(activeModelPath);
-        }
     }
 
     isLoading = false;
