@@ -95,6 +95,11 @@ const MODEL_ROTATION_STEP = THREE.MathUtils.degToRad(15);
 
 let cameraRotationFrame = null;
 let cameraOrbitAngle = 0;
+let cameraVerticalAngle = 0;
+
+const AUTO_ROTATE_ORBIT_SPEED = 0.0065;
+const AUTO_ROTATE_VERTICAL_SPEED = 0.0035;
+const AUTO_ROTATE_VERTICAL_AMPLITUDE = 0.35;
 
 /* =========================
    PRESET SPLAT MODELS
@@ -688,7 +693,7 @@ async function loadSplatModel(modelKey, customFile = null) {
 
         await splatViewer.addSplatScene(activeModelPath, {
             splatAlphaRemovalThreshold: getAlphaThreshold(),
-            showLoadingUI: true,
+            showLoadingUI: false,
             progressiveLoad: true,
             position: isUpload ? [0, 0, 0] : preset.position,
             rotation: isUpload
@@ -845,26 +850,38 @@ function runForensicScan() {
    CAMERA AUTO ROTATE
 ========================= */
 
+function getCurrentPreset() {
+    return presetModels[activeModelKey] || presetModels.room;
+}
+
 function startCameraOrbit() {
     if (cameraRotationFrame) return;
 
     const loop = () => {
         if (isAutoRotating && splatViewer.camera) {
-            const preset = presetModels[activeModelKey] || presetModels.room;
-            const lookAt = preset.lookAt;
+            const preset = getCurrentPreset();
 
-            cameraOrbitAngle += 0.006;
-
-            const radius = preset.orbitRadius || 3.0;
-            const height = preset.cameraPosition[2] || 1.6;
-
-            splatViewer.camera.position.set(
-                Math.sin(cameraOrbitAngle) * radius,
-                -Math.cos(cameraOrbitAngle) * radius,
-                height
+            const lookAt = new THREE.Vector3(
+                preset.lookAt[0],
+                preset.lookAt[1],
+                preset.lookAt[2]
             );
 
-            splatViewer.camera.lookAt(lookAt[0], lookAt[1], lookAt[2]);
+            const radius = preset.orbitRadius || 3.2;
+            const baseHeight = preset.cameraPosition[2] || 1.6;
+
+            cameraOrbitAngle += AUTO_ROTATE_ORBIT_SPEED;
+            cameraVerticalAngle += AUTO_ROTATE_VERTICAL_SPEED;
+
+            const cameraX = lookAt.x + Math.sin(cameraOrbitAngle) * radius;
+            const cameraY = lookAt.y - Math.cos(cameraOrbitAngle) * radius;
+            const cameraZ =
+                lookAt.z +
+                baseHeight +
+                Math.sin(cameraVerticalAngle) * AUTO_ROTATE_VERTICAL_AMPLITUDE;
+
+            splatViewer.camera.position.set(cameraX, cameraY, cameraZ);
+            splatViewer.camera.lookAt(lookAt);
         }
 
         cameraRotationFrame = requestAnimationFrame(loop);
