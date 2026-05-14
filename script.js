@@ -1002,8 +1002,8 @@ gridBtn?.addEventListener("click", () => {
 
     const isHidden = viewerShell?.classList.contains("grid-hidden");
 
-    setIconButtonLabel(gridBtn, isHidden ? "Grid: OFF" : "Grid: ON");
-    showToast(isHidden ? "Grid disabled" : "Grid enabled");
+    setIconButtonLabel(gridBtn, isHidden ? "Scan grid: OFF" : "Scan grid: ON");
+    showToast(isHidden ? "Scan grid disabled" : "Scan grid enabled");
 });
 
 fullscreenBtn?.addEventListener("click", async () => {
